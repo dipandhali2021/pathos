@@ -450,9 +450,9 @@ async function restoreAuthenticationState(
         const remoteUrl = `https://github.com/${username}/${repoName}.git`;
 
         const visibilityChoice = await vscode.window.showQuickPick(['Private', 'Public'], {
-            placeHolder: 'Select repository visibility',
-            title: 'Repository Privacy Setting',
-            ignoreFocusOut: true,
+          placeHolder: 'Select repository visibility',
+          title: 'Repository Privacy Setting',
+          ignoreFocusOut: true,
         });
         const isPrivate = visibilityChoice === 'Private';
         await setupRepository(services, repoName, remoteUrl, isPrivate);
@@ -690,7 +690,7 @@ async function registerCommands(
     'devtrack.updateRepoVisibility',
     () => services.githubService.updateRepoVisibility()
   );
-  
+
 
   // Add to subscriptions
   context.subscriptions.push(
@@ -715,16 +715,13 @@ interface DevTrackServices {
   extensionContext: vscode.ExtensionContext;
 }
 
+
 async function initializeDevTrack(services: DevTrackServices) {
   try {
     services.outputChannel.appendLine('DevTrack: Starting initialization...');
 
     // Verify Git installation with improved error handling
-    if (
-      !(await GitInstallationHandler.checkGitInstallation(
-        services.outputChannel
-      ))
-    ) {
+    if (!(await GitInstallationHandler.checkGitInstallation(services.outputChannel))) {
       const response = await vscode.window.showErrorMessage(
         'DevTrack requires Git to be installed and properly configured. Would you like to see the installation guide?',
         'Show Guide',
@@ -734,17 +731,14 @@ async function initializeDevTrack(services: DevTrackServices) {
       if (response === 'Show Guide') {
         await vscode.commands.executeCommand('devtrack.showGitGuide');
       }
-      throw new Error(
-        'Git must be installed before DevTrack can be initialized.'
-      );
+      throw new Error('Git must be installed before DevTrack can be initialized.');
     }
 
     // Get GitHub authentication
-    const session = await vscode.authentication.getSession(
-      'github',
-      ['repo', 'read:user', 'user:email'],
-      { createIfNone: true, clearSessionPreference: true }
-    );
+    const session = await vscode.authentication.getSession('github', ['repo', 'read:user', 'user:email'], {
+      createIfNone: true,
+      clearSessionPreference: true
+    });
 
     if (!session) {
       throw new Error('GitHub authentication is required to use DevTrack.');
@@ -756,31 +750,32 @@ async function initializeDevTrack(services: DevTrackServices) {
       const username = await services.githubService.getUsername();
 
       if (!username) {
-        throw new Error(
-          'Unable to retrieve GitHub username. Please try logging in again.'
-        );
+        throw new Error('Unable to retrieve GitHub username. Please try logging in again.');
       }
 
-      // Get repository visibility preference
-      const visibilityChoice = await vscode.window.showQuickPick(
-        ['Private', 'Public'],
-        {
-          placeHolder: 'Select repository visibility',
-          title: 'Repository Privacy Setting',
-          ignoreFocusOut: true, // Prevent dialog from closing when focus is lost
-        }
-      );
-
-      if (!visibilityChoice) {
-        throw new Error('Repository visibility selection is required.');
-      }
-
-      const isPrivate = visibilityChoice === 'Private';
-
-      // Setup repository
+      // Get repository configuration
       const config = vscode.workspace.getConfiguration('devtrack');
       const repoName = config.get<string>('repoName') || 'code-tracking';
       const remoteUrl = `https://github.com/${username}/${repoName}.git`;
+
+      // Check if repository exists
+      const repoExists = await services.githubService.repoExists(repoName);
+      let isPrivate = true; // Default to private
+
+      if (!repoExists) {
+        // Only show visibility choice for new repositories
+        const visibilityChoice = await vscode.window.showQuickPick(['Private', 'Public'], {
+          placeHolder: 'Select repository visibility',
+          title: 'Repository Privacy Setting',
+          ignoreFocusOut: true,
+        });
+
+        if (!visibilityChoice) {
+          throw new Error('Repository visibility selection is required.');
+        }
+
+        isPrivate = visibilityChoice === 'Private';
+      }
 
       await setupRepository(services, repoName, remoteUrl, isPrivate);
       await initializeTracker(services);
@@ -795,17 +790,11 @@ async function initializeDevTrack(services: DevTrackServices) {
       updateStatusBar(services, 'auth', true);
       updateStatusBar(services, 'tracking', true);
 
-      services.outputChannel.appendLine(
-        'DevTrack: Initialization completed successfully.'
-      );
-      vscode.window.showInformationMessage(
-        'DevTrack has been set up successfully and tracking has started.'
-      );
+      services.outputChannel.appendLine('DevTrack: Initialization completed successfully.');
+      vscode.window.showInformationMessage('DevTrack has been set up successfully and tracking has started.');
     } catch (error: any) {
       if (error.message.includes('git')) {
-        throw new Error(
-          'There was an issue with Git configuration. Please ensure Git is properly installed and try again.'
-        );
+        throw new Error('There was an issue with Git configuration. Please ensure Git is properly installed and try again.');
       }
       throw error;
     }
@@ -982,4 +971,4 @@ function showWelcomeMessage(
   }
 }
 
-export function deactivate() {}
+export function deactivate() { }

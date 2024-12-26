@@ -24,7 +24,7 @@ export class Tracker extends EventEmitter {
 
   private initializeWatcher() {
     const config = vscode.workspace.getConfiguration('devtrack');
-    this.excludePatterns = config.get<string[]>('exclude') || [];
+    this.excludePatterns = [...(config.get<string[]>('exclude') || []), '.devtrack/**'];
 
     // Create file system watcher
     this.watcher = vscode.workspace.createFileSystemWatcher(
@@ -45,7 +45,16 @@ export class Tracker extends EventEmitter {
   private handleChange(uri: vscode.Uri, type: 'added' | 'changed' | 'deleted') {
     try {
       const relativePath = vscode.workspace.asRelativePath(uri);
+      if (relativePath.startsWith('.devtrack')) {
+        return;
+      }
 
+      // Check if file should be excluded
+      if (this.excludePatterns.some(pattern => minimatch(relativePath, pattern))) {
+        return;
+      }
+
+      
       // Check if file should be excluded
       const isExcluded = this.excludePatterns.some((pattern) =>
         minimatch(relativePath, pattern)

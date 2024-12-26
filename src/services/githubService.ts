@@ -25,18 +25,6 @@ export class GitHubService {
     description: string = 'DevTrack Code Tracking Repository'
   ): Promise<string | null> {
     try {
-      // Ask user for repository visibility if not specified
-      if (isPrivate === undefined) {
-        const choice = await vscode.window.showQuickPick(
-          ['Private', 'Public'],
-          {
-            placeHolder: 'Select repository visibility',
-            title: 'Repository Privacy Setting',
-          }
-        );
-        isPrivate = choice === 'Private';
-      }
-
       const response = await this.octokit.repos.createForAuthenticatedUser({
         name: repoName,
         description,
@@ -44,17 +32,13 @@ export class GitHubService {
         auto_init: true,
       });
 
-      // Setup code-tracking folder
+      // Setup tracking folder structure
       await this.setupTrackingFolder();
 
       return response.data.clone_url;
     } catch (error: any) {
-      this.outputChannel.appendLine(
-        `Error creating repository: ${error.message}`
-      );
-      vscode.window.showErrorMessage(
-        `DevTrack: Failed to create repository "${repoName}".`
-      );
+      this.outputChannel.appendLine(`Error creating repository: ${error.message}`);
+      vscode.window.showErrorMessage(`DevTrack: Failed to create repository "${repoName}".`);
       return null;
     }
   }
@@ -70,26 +54,47 @@ export class GitHubService {
       const trackingFolder = path.join(workspaceRoot, '.devtrack');
       if (!fs.existsSync(trackingFolder)) {
         fs.mkdirSync(trackingFolder);
-      }
+        
+        // Create necessary subfolders
+        const logsFolder = path.join(trackingFolder, 'logs');
+        const statsFolder = path.join(trackingFolder, 'stats');
+        fs.mkdirSync(logsFolder);
+        fs.mkdirSync(statsFolder);
 
-      // Update or create .gitignore
-      const gitignorePath = path.join(workspaceRoot, '.gitignore');
-      const trackingFolderEntry = '.devtrack/';
-
-      if (fs.existsSync(gitignorePath)) {
-        const content = fs.readFileSync(gitignorePath, 'utf8');
-        if (!content.includes(trackingFolderEntry)) {
-          fs.appendFileSync(gitignorePath, `\n${trackingFolderEntry}\n`);
+        // Create .gitignore in workspace root if it doesn't exist
+        const workspaceGitignore = path.join(workspaceRoot, '.gitignore');
+        if (!fs.existsSync(workspaceGitignore)) {
+          fs.writeFileSync(workspaceGitignore, '.devtrack/\n');
+        } else {
+          const content = fs.readFileSync(workspaceGitignore, 'utf8');
+          if (!content.includes('.devtrack/')) {
+            fs.appendFileSync(workspaceGitignore, '\n.devtrack/\n');
+          }
         }
-      } else {
-        fs.writeFileSync(gitignorePath, trackingFolderEntry + '\n');
+
+        // Initialize git in .devtrack folder
+        const trackingGitignore = path.join(trackingFolder, '.gitignore');
+        const trackingGitignoreContent = `
+# Project specific files
+node_modules/
+.DS_Store
+
+# Keep logs folder but ignore contents
+logs/*
+!logs/.gitkeep
+stats/*
+!stats/.gitkeep
+`;
+        fs.writeFileSync(trackingGitignore, trackingGitignoreContent);
+
+        // Create .gitkeep files
+        fs.writeFileSync(path.join(logsFolder, '.gitkeep'), '');
+        fs.writeFileSync(path.join(statsFolder, '.gitkeep'), '');
       }
 
       this.outputChannel.appendLine('DevTrack: Tracking folder setup completed');
     } catch (error: any) {
-      this.outputChannel.appendLine(
-        `DevTrack: Error setting up tracking folder - ${error.message}`
-      );
+      this.outputChannel.appendLine(`DevTrack: Error setting up tracking folder - ${error.message}`);
       throw error;
     }
   }
