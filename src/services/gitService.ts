@@ -10,6 +10,7 @@ import { exec } from 'child_process';
 import { execSync } from 'child_process';
 const execAsync = promisify(exec);
 import * as fs from 'fs';
+import { GitHubService } from './githubService';
 
 interface GitServiceEvents {
   commit: (message: string) => void;
@@ -33,12 +34,13 @@ export class GitService extends EventEmitter {
     event: keyof GitServiceEvents;
     listener: Function;
   }> = new Set();
-  private projectGit!: SimpleGit; // For Project A's git
+  private githubService: GitHubService;
 
-  constructor(outputChannel: OutputChannel) {
+  constructor(outputChannel: OutputChannel, githubService: GitHubService) {
     super();
     this.setMaxListeners(GitService.MAX_LISTENERS);
     this.outputChannel = outputChannel;
+    this.githubService = githubService;
     this.trackingFolder = '';
     this.initializeWorkspace();
     this.setupDefaultErrorHandler();
@@ -452,139 +454,123 @@ export class GitService extends EventEmitter {
     }
   }
 
+  private async checkGitConfig(): Promise<{ name: string | null; email: string | null }> {
+    try {
+      const nameResult = await this.git.getConfig('user.name', 'global');
+      const emailResult = await this.git.getConfig('user.email', 'global');
 
-  //   private ensureDirectoryStructure(trackingFolder: string): void {
-  //     try {
-  //       // Create .devtrack folder if it doesn't exist
-  //       if (!fs.existsSync(trackingFolder)) {
-  //         fs.mkdirSync(trackingFolder);
-  //       }
+      return {
+        name: nameResult.value,
+        email: emailResult.value
+      };
+    } catch (error) {
+      return { name: null, email: null };
+    }
+  }
 
-  //       // Create necessary subfolders
-  //       const logsFolder = path.join(trackingFolder, 'logs');
-  //       const statsFolder = path.join(trackingFolder, 'stats');
+  private async setGlobalGitConfig(username: string, email: string): Promise<void> {
+    try {
+      await this.git.addConfig('user.name', username, true, 'global');
+      await this.git.addConfig('user.email', email, true, 'global');
+      this.outputChannel.appendLine('DevTrack: Global Git configuration updated successfully');
+    } catch (error: any) {
+      this.outputChannel.appendLine(`DevTrack: Error setting global Git config - ${error.message}`);
+      throw error;
+    }
+  }
 
-  //       if (!fs.existsSync(logsFolder)) {
-  //         fs.mkdirSync(logsFolder);
-  //       }
-  //       if (!fs.existsSync(statsFolder)) {
-  //         fs.mkdirSync(statsFolder);
-  //       }
 
-  //       // Create .gitkeep files to preserve empty directories
-  //       const logsGitKeep = path.join(logsFolder, '.gitkeep');
-  //       const statsGitKeep = path.join(statsFolder, '.gitkeep');
-
-  //       if (!fs.existsSync(logsGitKeep)) {
-  //         fs.writeFileSync(logsGitKeep, '');
-  //       }
-  //       if (!fs.existsSync(statsGitKeep)) {
-  //         fs.writeFileSync(statsGitKeep, '');
-  //       }
-
-  //       // Create or update .gitignore
-  //       const gitignorePath = path.join(trackingFolder, '.gitignore');
-  //       const gitignoreContent = `
-  // # Project specific files
-  // node_modules/
-  // .DS_Store
-  // `;
-  //       fs.writeFileSync(gitignorePath, gitignoreContent);
-
-  //       this.outputChannel.appendLine('DevTrack: Directory structure ensured');
-  //     } catch (error: any) {
-  //       this.outputChannel.appendLine(`DevTrack: Error ensuring directory structure - ${error.message}`);
-  //       throw error;
+  // public async initializeRepo(remoteUrl: string): Promise<void> {
+  //   try {
+  //     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+  //     if (!workspaceRoot) {
+  //       throw new Error('No workspace folder found');
   //     }
-  //   }
 
-  //   public async initializeRepo(remoteUrl: string): Promise<void> {
-  //     return this.enqueueOperation(async () => {
-  //       try {
-  //         const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
-  //         if (!workspaceRoot) {
-  //           throw new Error('No workspace folder found');
+  //     const trackingFolder = path.join(workspaceRoot, '.devtrack');
+
+  //     // Create tracking folder if it doesn't exist
+  //     fs.mkdirSync(trackingFolder, { recursive: true });
+
+  //     // Initialize git instance
+  //     this.ensureGitInitialized(trackingFolder);
+
+  //     if (!this.git) {
+  //       throw new Error('Failed to initialize git');
+  //     }
+
+  //     // Initialize git repository
+  //     await this.git.init();
+
+  //     // Check existing git config
+  //     const gitConfig = await this.checkGitConfig();
+
+  //     if (!gitConfig.name || !gitConfig.email) {
+  //       // Get GitHub username from GitHub service
+  //       const username = await this.githubService.getUsername();
+  //       if (!username) {
+  //         throw new Error('Failed to get GitHub username');
+  //       }
+
+  //       // If email is not set, prompt user for email
+  //       if (!gitConfig.email) {
+  //         const email = await vscode.window.showInputBox({
+  //           prompt: 'Please enter your email address for Git configuration',
+  //           placeHolder: 'your.email@example.com',
+  //           validateInput: (value) => {
+  //             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  //             return emailRegex.test(value) ? null : 'Please enter a valid email address';
+  //           }
+  //         });
+
+  //         if (!email) {
+  //           throw new Error('Email is required for Git configuration');
   //         }
 
-  //         const trackingFolder = path.join(workspaceRoot, '.devtrack');
+  //         // Set global Git configuration
+  //         await this.setGlobalGitConfig(username, email);
+  //       }
+  //     }
 
-  //         // Ensure directory structure before git operations
-  //         this.ensureDirectoryStructure(trackingFolder);
 
-  //         await this.withRetry(async () => {
-  //           // Initialize git in .devtrack folder
-  //           if (!fs.existsSync(path.join(trackingFolder, '.git'))) {
-  //             this.execGitCommand('git init', trackingFolder);
-  //             this.outputChannel.appendLine('DevTrack: Initialized git in tracking folder');
-  //           }
+  //     // Setup remote
+  //     const remotes = await this.git.getRemotes();
+  //     if (remotes.find(remote => remote.name === 'origin')) {
+  //       await this.git.removeRemote('origin');
+  //     }
+  //     await this.git.addRemote('origin', remoteUrl);
 
-  //           // Configure git
-  //           this.execGitCommand('git config user.name "DevTrack"', trackingFolder);
-  //           this.execGitCommand('git config user.email "devtrack@stackblitz.com"', trackingFolder);
+  //     // Ensure directory structure
+  //     await this.ensureDirectoryStructure();
 
-  //           // Add remote
-  //           try {
-  //             this.execGitCommand('git remote remove origin', trackingFolder);
-  //           } catch (error) {
-  //             // Ignore error if remote doesn't exist
-  //           }
-  //           this.execGitCommand(`git remote add origin ${remoteUrl}`, trackingFolder);
-  //         });
+  //     // Setup main branch
+  //     try {
+  //       await this.git.checkoutLocalBranch('main');
+  //     } catch {
+  //       await this.git.checkout('main');
+  //     }
 
-  //         await this.withRetry(async () => {
-  //           // Initial commit if needed
-  //           try {
-  //             this.execGitCommand('git add .', trackingFolder);
-  //             this.execGitCommand('git commit -m "Initial DevTrack setup"', trackingFolder);
-  //           } catch (error) {
-  //             // Ignore if nothing to commit
-  //           }
-  //         });
-
-  //         await this.withRetry(async () => {
-  //           try {
-  //             // Try to create and checkout main branch
-  //             this.execGitCommand('git checkout -b main', trackingFolder);
-  //           } catch (error) {
-  //             try {
-  //               // If main branch exists, just checkout
-  //               this.execGitCommand('git checkout main', trackingFolder);
-  //             } catch (error) {
-  //               // If main fails, try master
-  //               this.execGitCommand('git checkout master', trackingFolder);
-  //             }
-  //           }
-
-  //           // Push to remote with force-with-lease to handle existing branches safely
-  //           try {
-  //             this.execGitCommand('git push -u origin main --force-with-lease', trackingFolder);
-  //           } catch (error: any) {
-  //             if (error.message.includes('rejected')) {
-  //               // Handle case where remote exists but we can't push
-  //               this.execGitCommand('git fetch origin', trackingFolder);
-  //               this.execGitCommand('git reset --hard origin/main', trackingFolder);
-  //               this.execGitCommand('git pull --rebase origin main', trackingFolder);
-
-  //               // Re-ensure directory structure after pull
-  //               this.ensureDirectoryStructure(trackingFolder);
-
-  //               // Add and commit the directory structure
-  //               this.execGitCommand('git add .', trackingFolder);
-  //               this.execGitCommand('git commit -m "Restore DevTrack directory structure"', trackingFolder);
-  //               this.execGitCommand('git push -u origin main', trackingFolder);
-  //             } else {
-  //               throw error;
-  //             }
-  //           }
-  //         });
-
-  //         this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
-  //       } catch (error: any) {
-  //         this.handleGitError(error);
+  //     // Initial push
+  //     try {
+  //       await this.git.push('origin', 'main', ['--force-with-lease']);
+  //     } catch (error: any) {
+  //       if (error.message.includes('rejected')) {
+  //         await this.git.fetch('origin');
+  //         await this.git.reset(['--hard', 'origin/main']);
+  //         await this.git.pull('origin', 'main', ['--rebase']);
+  //         await this.ensureDirectoryStructure();
+  //         await this.git.push('origin', 'main');
+  //       } else {
   //         throw error;
   //       }
-  //     });
+  //     }
+
+  //     this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
+  //   } catch (error: any) {
+  //     this.outputChannel.appendLine(`DevTrack: Initialization failed - ${error.message}`);
+  //     throw error;
   //   }
+  // }
 
 
   public async initializeRepo(remoteUrl: string): Promise<void> {
@@ -609,9 +595,35 @@ export class GitService extends EventEmitter {
       // Initialize git repository
       await this.git.init();
 
-      // Configure git
-      await this.git.addConfig('user.name', 'DevTrack');
-      await this.git.addConfig('user.email', 'devtrack@stackblitz.com');
+      // Check existing git config
+      const gitConfig = await this.checkGitConfig();
+
+      if (!gitConfig.name || !gitConfig.email) {
+        // Get GitHub username from GitHub service
+        const username = await this.githubService.getUsername();
+        if (!username) {
+          throw new Error('Failed to get GitHub username');
+        }
+
+        // If email is not set, prompt user for email
+        if (!gitConfig.email) {
+          const email = await vscode.window.showInputBox({
+            prompt: 'Please enter your email address for Git configuration',
+            placeHolder: 'your.email@example.com',
+            validateInput: (value) => {
+              const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+              return emailRegex.test(value) ? null : 'Please enter a valid email address';
+            }
+          });
+
+          if (!email) {
+            throw new Error('Email is required for Git configuration');
+          }
+
+          // Set global Git configuration
+          await this.setGlobalGitConfig(username, email);
+        }
+      }
 
       // Setup remote
       const remotes = await this.git.getRemotes();
@@ -646,6 +658,7 @@ export class GitService extends EventEmitter {
       }
 
       this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
+
     } catch (error: any) {
       this.outputChannel.appendLine(`DevTrack: Initialization failed - ${error.message}`);
       throw error;

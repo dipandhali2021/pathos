@@ -10,9 +10,6 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
-
-
-
 // Git installation handling
 class GitInstallationHandler {
   private static readonly DOWNLOAD_URLS = {
@@ -347,8 +344,9 @@ async function recoverFromGitIssues(services: DevTrackServices): Promise<void> {
     }
 
     // Reinitialize services
+    const githubService = new GitHubService(services.outputChannel);
     services.githubService = new GitHubService(services.outputChannel);
-    services.gitService = new GitService(services.outputChannel);
+    services.gitService = new GitService(services.outputChannel,githubService);
 
     // Get fresh GitHub token
     const session = await vscode.authentication.getSession(
@@ -493,10 +491,11 @@ async function initializeServices(
   context.subscriptions.push(outputChannel);
   outputChannel.appendLine('DevTrack: Extension activated.');
 
+  const githubService = new GitHubService(outputChannel);
   const services: DevTrackServices = {
     outputChannel,
-    githubService: new GitHubService(outputChannel),
-    gitService: new GitService(outputChannel),
+    githubService,
+    gitService: new GitService(outputChannel,githubService),
     tracker: new Tracker(outputChannel),
     summaryGenerator: new SummaryGenerator(outputChannel),
     scheduler: null,
