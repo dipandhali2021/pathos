@@ -10,6 +10,9 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
+
+
+
 // Git installation handling
 class GitInstallationHandler {
   private static readonly DOWNLOAD_URLS = {
@@ -495,7 +498,7 @@ async function initializeServices(
     githubService: new GitHubService(outputChannel),
     gitService: new GitService(outputChannel),
     tracker: new Tracker(outputChannel),
-    summaryGenerator: new SummaryGenerator(outputChannel, context),
+    summaryGenerator: new SummaryGenerator(outputChannel),
     scheduler: null,
     trackingStatusBar: createStatusBarItem('tracking'),
     authStatusBar: createStatusBarItem('auth'),

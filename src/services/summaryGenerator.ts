@@ -1,178 +1,182 @@
-/* eslint-disable no-unused-vars */
-/* eslint-disable no-useless-escape */
-// src/services/summaryGenerator.ts
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { Change } from './tracker';
-import { ProjectContext } from './projectContext';
+import { FileCache } from './fileCache';
 
 export class SummaryGenerator {
+  private fileCache: FileCache;
   private outputChannel: vscode.OutputChannel;
-  private projectContext: ProjectContext;
 
-  constructor(
-    outputChannel: vscode.OutputChannel,
-    extensionContext: vscode.ExtensionContext
-  ) {
+  constructor(outputChannel: vscode.OutputChannel) {
     this.outputChannel = outputChannel;
-    this.projectContext = new ProjectContext(outputChannel, extensionContext);
+    this.fileCache = new FileCache(outputChannel);
   }
 
-  private async getFileChanges(change: Change): Promise<string> {
+  private async getFileContent(uri: vscode.Uri): Promise<string> {
     try {
-      const oldUri = change.type === 'added' ? undefined : change.uri;
-      const newUri = change.type === 'deleted' ? undefined : change.uri;
-
-      if (!oldUri && !newUri) {
-        return '';
-      }
-
-      const gitExt = vscode.extensions.getExtension('vscode.git');
-      if (!gitExt) {
-        return '';
-      }
-
-      const git = gitExt.exports.getAPI(1);
-      if (!git.repositories.length) {
-        return '';
-      }
-
-      const repo = git.repositories[0];
-
-      // Get the diff for the file
-      const diff = await repo.diff(oldUri, newUri);
-      return this.parseDiff(diff, path.basename(change.uri.fsPath));
+      const document = await vscode.workspace.openTextDocument(uri);
+      return document.getText();
     } catch (error) {
-      this.outputChannel.appendLine(`Error getting file changes: ${error}`);
       return '';
     }
   }
 
-  private parseDiff(diff: string, filename: string): string {
-    if (!diff) {
-      return filename;
-    }
+  private async calculateDiff(oldContent: string, newContent: string): Promise<{ additions: number; deletions: number; diffLines: string[] }> {
+    const oldLines = oldContent.split('\n');
+    const newLines = newContent.split('\n');
+    const diffLines: string[] = [];
+    let additions = 0;
+    let deletions = 0;
 
-    const lines = diff.split('\n');
-    const changes: {
-      modified: Set<string>;
-      added: Set<string>;
-      removed: Set<string>;
-    } = {
-      modified: new Set(),
-      added: new Set(),
-      removed: new Set(),
-    };
+    // Use longest common subsequence to find actual changes
+    const lcs = this.getLCS(oldLines, newLines);
+    let oldIndex = 0;
+    let newIndex = 0;
+    let lcsIndex = 0;
 
-    let currentFunction = '';
-
-    for (const line of lines) {
-      // Skip empty lines and comments
-      if (!line.trim() || line.match(/^[\+\-]\s*\/\//)) {
-        continue;
-      }
-
-      // Function/method/class detection
-      const functionMatch = line.match(
-        /^([\+\-])\s*(async\s+)?((function|class|const|let|var)\s+)?([a-zA-Z_$][a-zA-Z0-9_$]*)/
-      );
-
-      if (functionMatch) {
-        const [_, changeType, _async, _keyword, _type, name] = functionMatch;
-
-        if (changeType === '+') {
-          changes.added.add(name);
-        } else if (changeType === '-') {
-          changes.removed.add(name);
-        }
-
-        // If both added and removed, it's a modification
-        if (changes.added.has(name) && changes.removed.has(name)) {
-          changes.modified.add(name);
-          changes.added.delete(name);
-          changes.removed.delete(name);
-        }
-
-        continue;
+    while (oldIndex < oldLines.length || newIndex < newLines.length) {
+      if (lcsIndex < lcs.length && 
+          oldIndex < oldLines.length && 
+          newIndex < newLines.length && 
+          oldLines[oldIndex] === lcs[lcsIndex] && 
+          newLines[newIndex] === lcs[lcsIndex]) {
+        // Line unchanged
+        oldIndex++;
+        newIndex++;
+        lcsIndex++;
+      } else if (newIndex < newLines.length && 
+                (lcsIndex >= lcs.length || newLines[newIndex] !== lcs[lcsIndex])) {
+        // Line added
+        diffLines.push(`    + ${newLines[newIndex]}`);
+        additions++;
+        newIndex++;
+      } else if (oldIndex < oldLines.length && 
+                (lcsIndex >= lcs.length || oldLines[oldIndex] !== lcs[lcsIndex])) {
+        // Line deleted
+        diffLines.push(`    - ${oldLines[oldIndex]}`);
+        deletions++;
+        oldIndex++;
       }
     }
 
-    // Build change description
-    const descriptions: string[] = [];
+    return { additions, deletions, diffLines };
+  }
 
-    if (changes.modified.size > 0) {
-      descriptions.push(`modified ${Array.from(changes.modified).join(', ')}`);
-    }
-    if (changes.added.size > 0) {
-      descriptions.push(`added ${Array.from(changes.added).join(', ')}`);
-    }
-    if (changes.removed.size > 0) {
-      descriptions.push(`removed ${Array.from(changes.removed).join(', ')}`);
+  private getLCS(arr1: string[], arr2: string[]): string[] {
+    const dp: number[][] = Array(arr1.length + 1).fill(0)
+      .map(() => Array(arr2.length + 1).fill(0));
+
+    // Fill the dp table
+    for (let i = 1; i <= arr1.length; i++) {
+      for (let j = 1; j <= arr2.length; j++) {
+        if (arr1[i - 1] === arr2[j - 1]) {
+          dp[i][j] = dp[i - 1][j - 1] + 1;
+        } else {
+          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+      }
     }
 
-    return descriptions.length > 0
-      ? `${filename} (${descriptions.join('; ')})`
-      : filename;
+    // Reconstruct the LCS
+    const lcs: string[] = [];
+    let i = arr1.length;
+    let j = arr2.length;
+
+    while (i > 0 && j > 0) {
+      if (arr1[i - 1] === arr2[j - 1]) {
+        lcs.unshift(arr1[i - 1]);
+        i--;
+        j--;
+      } else if (dp[i - 1][j] > dp[i][j - 1]) {
+        i--;
+      } else {
+        j--;
+      }
+    }
+
+    return lcs;
+  }
+
+  private async getDetailedFileChanges(change: Change): Promise<string> {
+    const filename = path.basename(change.uri.fsPath);
+    let summary = '';
+
+    try {
+      switch (change.type) {
+        case 'added': {
+          const content = await this.getFileContent(change.uri);
+          const lines = content.split('\n');
+          summary = `${filename} (Added)\n    ${lines.length} additions, 0 deletions\n`;
+          // Show first few lines of new file
+          const previewLines = lines.slice(0, 5).map(line => `    + ${line}`);
+          if (previewLines.length > 0) {
+            summary += previewLines.join('\n');
+            if (lines.length > 5) {
+              summary += '\n    ... more lines';
+            }
+          }
+          // Cache the new file content
+          await this.fileCache.updateCache(change.uri);
+          break;
+        }
+
+        case 'deleted': {
+          const cachedContent = this.fileCache.getCachedContent(change.uri) || '';
+          const lines = cachedContent.split('\n');
+          summary = `${filename} (Deleted)\n    0 additions, ${lines.length} deletions`;
+          break;
+        }
+
+        case 'changed': {
+          const oldContent = this.fileCache.getCachedContent(change.uri) || '';
+          const newContent = await this.getFileContent(change.uri);
+          const { additions, deletions, diffLines } = await this.calculateDiff(oldContent, newContent);
+          
+          summary = `${filename} (Modified)\n    ${additions} additions, ${deletions} deletions\n`;
+          if (diffLines.length > 0) {
+            const previewLines = diffLines.slice(0, 5);
+            summary += previewLines.join('\n');
+            if (diffLines.length > 5) {
+              summary += '\n    ... more changes';
+            }
+          }
+          // Update cache with new content
+          await this.fileCache.updateCache(change.uri);
+          break;
+        }
+      }
+
+      return summary;
+    } catch (error) {
+      this.outputChannel.appendLine(`Error processing ${filename}: ${error}`);
+      return `${filename} (Error processing changes)`;
+    }
   }
 
   async generateSummary(changedFiles: Change[]): Promise<string> {
     try {
-      // Get detailed file changes
       const fileChanges = await Promise.all(
-        changedFiles.map((change) => this.getFileChanges(change))
+        changedFiles.map(change => this.getDetailedFileChanges(change))
       );
 
-      const significantChanges = fileChanges.filter(Boolean);
-      const context = this.projectContext.getContextForSummary(changedFiles);
-
-      // Build the summary
-      let summary = 'DevTrack:';
-
-      // Add branch context
-      if (context) {
-        summary += ` ${context}`;
-      }
-
-      // Add file changes
-      if (significantChanges.length > 0) {
-        summary += ` | Changes in: ${significantChanges.join('; ')}`;
-      } else {
-        // Fallback to basic stats
-        const stats = this.calculateChangeStats(changedFiles);
-        const changeDetails = [];
-        if (stats.added > 0) {
-          changeDetails.push(`${stats.added} files added`);
-        }
-        if (stats.modified > 0) {
-          changeDetails.push(`${stats.modified} files modified`);
-        }
-        if (stats.deleted > 0) {
-          changeDetails.push(`${stats.deleted} files deleted`);
-        }
-
-        summary += ` | ${changeDetails.join(', ')}`;
-      }
-
-      // Save commit info and return summary
-      await this.projectContext.addCommit(summary, changedFiles);
-      this.outputChannel.appendLine(
-        `DevTrack: Generated commit summary: "${summary}"`
+      const stats = changedFiles.reduce(
+        (acc, change) => {
+          acc[change.type] = (acc[change.type] || 0) + 1;
+          return acc;
+        },
+        {} as Record<string, number>
       );
+
+      let summary = 'DevTrack: Changes detected\n\nChanges:\n';
+      summary += fileChanges.join('\n\n');
+      summary += `\n\nSummary: ${stats.added || 0} files added, ${
+        stats.changed || 0
+      } files modified, ${stats.deleted || 0} files deleted`;
 
       return summary;
     } catch (error) {
-      this.outputChannel.appendLine(
-        `DevTrack: Error generating summary: ${error}`
-      );
-      return 'DevTrack: Updated files';
+      this.outputChannel.appendLine(`Summary generation error: ${error}`);
+      return 'DevTrack: Error generating change summary';
     }
-  }
-
-  private calculateChangeStats(changes: Change[]) {
-    return {
-      added: changes.filter((change) => change.type === 'added').length,
-      modified: changes.filter((change) => change.type === 'changed').length,
-      deleted: changes.filter((change) => change.type === 'deleted').length,
-    };
   }
 }
