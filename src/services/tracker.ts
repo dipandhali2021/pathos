@@ -1,8 +1,9 @@
-// src/services/tracker.ts
 import * as vscode from 'vscode';
 import { EventEmitter } from 'events';
 import { minimatch } from 'minimatch';
 import { OutputChannel } from 'vscode';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface Change {
   uri: vscode.Uri;
@@ -15,149 +16,178 @@ export class Tracker extends EventEmitter {
   private watcher!: vscode.FileSystemWatcher;
   private excludePatterns: string[] = [];
   private outputChannel: OutputChannel;
+  private persistPath: string;
+  private lastKnownState: Map<string, { hash: string, timestamp: number }> = new Map();
 
   constructor(outputChannel: OutputChannel) {
     super();
     this.outputChannel = outputChannel;
+    
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      throw new Error('No workspace folder found');
+    }
+    this.persistPath = path.join(workspaceRoot, '.devtrack', 'tracker-state.json');
+    
+    this.loadPersistedState();
     this.initializeWatcher();
+  }
+
+  private shouldTrackFile(filePath: string): boolean {
+    // Always exclude .devtrack folder and its contents
+    if (filePath.includes('.devtrack')) {
+      return false;
+    }
+
+    // Exclude common patterns
+    const defaultExcludes = [
+      '**/node_modules/**',
+      '**/.git/**',
+      '**/dist/**',
+      '**/build/**',
+      '**/.DS_Store',
+      '**/package-lock.json',
+      '**/yarn.lock'
+    ];
+
+    // Combine default excludes with user-configured excludes
+    const allExcludes = [...defaultExcludes, ...this.excludePatterns];
+
+    // Check if file matches any exclude pattern
+    return !allExcludes.some(pattern => minimatch(filePath, pattern, { dot: true }));
+  }
+
+  private async loadPersistedState() {
+    try {
+      if (fs.existsSync(this.persistPath)) {
+        const data = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
+        
+        // Filter out .devtrack files from existing state
+        const filteredState = new Map();
+        Object.entries(data.lastKnownState).forEach(([filePath, state]) => {
+          if (this.shouldTrackFile(filePath)) {
+            filteredState.set(filePath, state);
+          }
+        });
+        
+        this.lastKnownState = filteredState;
+        this.outputChannel.appendLine('DevTrack: Loaded and filtered persisted tracker state');
+      }
+    } catch (error) {
+      this.outputChannel.appendLine(`DevTrack: Error loading persisted state: ${error}`);
+    }
+  }
+
+  private persistState() {
+    try {
+      const dir = path.dirname(this.persistPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Only persist files that should be tracked
+      const filteredState = new Map();
+      this.lastKnownState.forEach((state, filePath) => {
+        if (this.shouldTrackFile(filePath)) {
+          filteredState.set(filePath, state);
+        }
+      });
+      
+      const data = {
+        lastKnownState: Object.fromEntries(filteredState)
+      };
+      fs.writeFileSync(this.persistPath, JSON.stringify(data, null, 2));
+    } catch (error) {
+      this.outputChannel.appendLine(`DevTrack: Error persisting state: ${error}`);
+    }
+  }
+
+  private async calculateFileHash(filePath: string): Promise<string> {
+    try {
+      const content = fs.readFileSync(filePath, 'utf8');
+      return Buffer.from(content).toString('base64');
+    } catch {
+      return '';
+    }
   }
 
   private initializeWatcher() {
     const config = vscode.workspace.getConfiguration('devtrack');
-    this.excludePatterns = [...(config.get<string[]>('exclude') || []), '.devtrack/**'];
+    this.excludePatterns = config.get<string[]>('exclude') || [];
 
-    // Create file system watcher
     this.watcher = vscode.workspace.createFileSystemWatcher(
       '**/*',
-      false, // Don't ignore creates
-      false, // Don't ignore changes
-      false // Don't ignore deletes
+      false,
+      false,
+      false
     );
 
-    // Set up event handlers
-    this.watcher.onDidChange((uri) => this.handleChange(uri, 'changed'));
-    this.watcher.onDidCreate((uri) => this.handleChange(uri, 'added'));
-    this.watcher.onDidDelete((uri) => this.handleChange(uri, 'deleted'));
+    this.watcher.onDidChange(async (uri) => {
+      if (!this.shouldTrackFile(uri.fsPath)) {
+        return;
+      }
+
+      const hash = await this.calculateFileHash(uri.fsPath);
+      const lastState = this.lastKnownState.get(uri.fsPath);
+      
+      if (!lastState || lastState.hash !== hash) {
+        this.handleChange(uri, 'changed');
+        this.lastKnownState.set(uri.fsPath, {
+          hash,
+          timestamp: Date.now()
+        });
+        this.persistState();
+      }
+    });
+
+    this.watcher.onDidCreate(async (uri) => {
+      if (!this.shouldTrackFile(uri.fsPath)) {
+        return;
+      }
+
+      const hash = await this.calculateFileHash(uri.fsPath);
+      this.handleChange(uri, 'added');
+      this.lastKnownState.set(uri.fsPath, {
+        hash,
+        timestamp: Date.now()
+      });
+      this.persistState();
+    });
+
+    this.watcher.onDidDelete((uri) => {
+      if (!this.shouldTrackFile(uri.fsPath)) {
+        return;
+      }
+
+      this.handleChange(uri, 'deleted');
+      this.lastKnownState.delete(uri.fsPath);
+      this.persistState();
+    });
 
     this.outputChannel.appendLine('DevTrack: File system watcher initialized.');
   }
 
-  private handleChange(uri: vscode.Uri, type: 'added' | 'changed' | 'deleted') {
-    try {
-      const relativePath = vscode.workspace.asRelativePath(uri);
-      if (relativePath.startsWith('.devtrack')) {
-        return;
-      }
-
-      // Check if file should be excluded
-      if (this.excludePatterns.some(pattern => minimatch(relativePath, pattern))) {
-        return;
-      }
-
-      
-      // Check if file should be excluded
-      const isExcluded = this.excludePatterns.some((pattern) =>
-        minimatch(relativePath, pattern)
-      );
-
-      if (!isExcluded) {
-        // Get file extension
-        const fileExt = uri.fsPath.split('.').pop()?.toLowerCase();
-
-        // Only track source code files and specific file types
-        const trackedExtensions = [
-          'ts',
-          'js',
-          'py',
-          'java',
-          'c',
-          'cpp',
-          'h',
-          'hpp',
-          'css',
-          'scss',
-          'html',
-          'jsx',
-          'tsx',
-          'vue',
-          'php',
-          'rb',
-          'go',
-          'rs',
-          'swift',
-          'md',
-          'json',
-          'yml',
-          'yaml',
-        ];
-
-        if (fileExt && trackedExtensions.includes(fileExt)) {
-          const key = uri.fsPath;
-
-          // Check if this is a meaningful change
-          const existingChange = this.changes.get(key);
-          if (existingChange) {
-            // If the file was previously deleted and now added, keep as added
-            if (existingChange.type === 'deleted' && type === 'added') {
-              type = 'added';
-            }
-            // If the file was previously added and modified, keep as added
-            else if (existingChange.type === 'added' && type === 'changed') {
-              type = 'added';
-            }
-          }
-
-          // Update or add the change
-          const change: Change = {
-            uri,
-            timestamp: new Date(),
-            type,
-          };
-
-          this.changes.set(key, change);
-          this.emit('change', change);
-
-          this.outputChannel.appendLine(
-            `DevTrack: Detected ${type} in ${relativePath}`
-          );
-        }
-      }
-    } catch (error) {
-      this.outputChannel.appendLine(
-        `DevTrack: Error handling file change: ${error}`
-      );
+  public handleChange(uri: vscode.Uri, type: 'added' | 'changed' | 'deleted'): void {
+    if (!this.shouldTrackFile(uri.fsPath)) {
+      return;
     }
+
+    this.changes.set(uri.fsPath, {
+      uri,
+      timestamp: new Date(),
+      type
+    });
   }
 
-  /**
-   * Returns the list of changed files.
-   */
-  getChangedFiles(): Change[] {
+  public getChangedFiles(): Change[] {
     return Array.from(this.changes.values());
   }
 
-  /**
-   * Clears the tracked changes.
-   */
-  clearChanges(): void {
+  public clearChanges(): void {
     this.changes.clear();
-    this.outputChannel.appendLine('DevTrack: Cleared tracked changes.');
   }
 
-  /**
-   * Updates the exclude patterns used to filter out files from tracking.
-   * @param newPatterns Array of glob patterns to exclude.
-   */
-  updateExcludePatterns(newPatterns: string[]) {
-    this.excludePatterns = newPatterns;
-    this.outputChannel.appendLine('DevTrack: Updated exclude patterns.');
-  }
-
-  /**
-   * Dispose method to clean up resources.
-   */
-  dispose() {
-    this.watcher.dispose();
-    this.outputChannel.appendLine('DevTrack: Disposed file system watcher.');
+  public updateExcludePatterns(patterns: string[]): void {
+    this.excludePatterns = patterns;
   }
 }

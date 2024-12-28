@@ -1,21 +1,78 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as path from 'path';
+import { EncryptionService } from './encryption';
 
 export class FileCache {
   private cache: Map<string, string> = new Map();
   private initialized: Set<string> = new Set();
+  private persistPath: string;
+  private encryption: EncryptionService;
 
-  constructor(private outputChannel: vscode.OutputChannel) {}
+  constructor(private outputChannel: vscode.OutputChannel) {
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (!workspaceRoot) {
+      throw new Error('No workspace folder found');
+    }
+    this.persistPath = path.join(workspaceRoot, '.devtrack', 'cache.json');
+    this.encryption = new EncryptionService();
+    this.loadPersistedCache();
+  }
+
+  private async loadPersistedCache() {
+    try {
+      if (fs.existsSync(this.persistPath)) {
+        const rawData = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
+        
+        // Decrypt cached content
+        Object.entries(rawData.cache).forEach(([filePath, encryptedContent]) => {
+          try {
+            const decryptedContent = this.encryption.decrypt(encryptedContent as string);
+            this.cache.set(filePath, decryptedContent);
+          } catch (error) {
+            this.outputChannel.appendLine(`Failed to decrypt cache for ${filePath}`);
+          }
+        });
+        
+        this.initialized = new Set(rawData.initialized);
+        this.outputChannel.appendLine('DevTrack: Loaded and decrypted persisted file cache');
+      }
+    } catch (error) {
+      this.outputChannel.appendLine(`DevTrack: Error loading persisted cache: ${error}`);
+    }
+  }
+
+  private persistCache() {
+    try {
+      const dir = path.dirname(this.persistPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      
+      // Encrypt cache content before persisting
+      const encryptedCache = new Map<string, string>();
+      this.cache.forEach((content, filePath) => {
+        encryptedCache.set(filePath, this.encryption.encrypt(content));
+      });
+      
+      const data = {
+        cache: Object.fromEntries(encryptedCache),
+        initialized: Array.from(this.initialized)
+      };
+      fs.writeFileSync(this.persistPath, JSON.stringify(data, null, 2));
+    } catch (error) {
+      this.outputChannel.appendLine(`DevTrack: Error persisting cache: ${error}`);
+    }
+  }
 
   async updateCache(uri: vscode.Uri): Promise<void> {
     try {
       const content = await this.readFile(uri);
       this.cache.set(uri.fsPath, content);
       this.initialized.add(uri.fsPath);
+      this.persistCache();
     } catch (error) {
-      this.outputChannel.appendLine(
-        `Cache update failed for ${uri.fsPath}: ${error}`
-      );
+      this.outputChannel.appendLine(`Cache update failed for ${uri.fsPath}: ${error}`);
     }
   }
 
@@ -38,5 +95,6 @@ export class FileCache {
   deleteFromCache(uri: vscode.Uri): void {
     this.cache.delete(uri.fsPath);
     this.initialized.delete(uri.fsPath);
+    this.persistCache();
   }
 }
