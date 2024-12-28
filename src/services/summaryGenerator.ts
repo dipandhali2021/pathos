@@ -2,15 +2,19 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Change } from './tracker';
 import { FileCache } from './fileCache';
+import { ProductivityTracker } from './productivityTracker';
 
 export class SummaryGenerator {
   private fileCache: FileCache;
   private outputChannel: vscode.OutputChannel;
+  private productivityTracker: ProductivityTracker;
 
   constructor(outputChannel: vscode.OutputChannel) {
     this.outputChannel = outputChannel;
     this.fileCache = new FileCache(outputChannel);
+    this.productivityTracker = new ProductivityTracker(outputChannel);
   }
+
 
   private async getFileContent(uri: vscode.Uri): Promise<string> {
     try {
@@ -155,6 +159,9 @@ export class SummaryGenerator {
 
   async generateSummary(changedFiles: Change[]): Promise<string> {
     try {
+      // Track changes for productivity metrics
+      this.productivityTracker.trackChanges(changedFiles);
+
       const fileChanges = await Promise.all(
         changedFiles.map(change => this.getDetailedFileChanges(change))
       );
@@ -167,11 +174,19 @@ export class SummaryGenerator {
         {} as Record<string, number>
       );
 
-      let summary = 'DevTrack: Changes detected\n\nChanges:\n';
+      let summary = 'DevTrack: Changes detected\n\n';
+      
+      // Add productivity metrics
+      summary += this.productivityTracker.getProductivityMetrics();
+      
+      summary += '\n\nChanges:\n';
       summary += fileChanges.join('\n\n');
       summary += `\n\nSummary: ${stats.added || 0} files added, ${
         stats.changed || 0
       } files modified, ${stats.deleted || 0} files deleted`;
+
+      // Reset productivity tracker after generating summary
+      this.productivityTracker.reset();
 
       return summary;
     } catch (error) {
@@ -180,3 +195,6 @@ export class SummaryGenerator {
     }
   }
 }
+
+
+//FA4
