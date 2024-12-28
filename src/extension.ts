@@ -10,6 +10,9 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 
+const GITHUB_AUTH_PROVIDER = 'github';
+const GITHUB_AUTH_SCOPES = ['repo', 'read:user', 'user:email']; 
+
 // Git installation handling
 class GitInstallationHandler {
   private static readonly DOWNLOAD_URLS = {
@@ -421,72 +424,71 @@ async function restoreAuthenticationState(
   services: DevTrackServices
 ): Promise<boolean> {
   try {
-    // Use getSession instead of getSessions
+    // First check if we have a session ID stored
+    const sessionId = context.globalState.get<string>('githubSessionId');
+    
+    // Try to get existing session silently
     const session = await vscode.authentication.getSession(
-      'github',
-      ['repo', 'read:user'],
+      GITHUB_AUTH_PROVIDER,
+      GITHUB_AUTH_SCOPES,
       {
         createIfNone: false,
-        silent: true, // Try to get session without prompting user
+        silent: true
       }
     );
 
     if (session) {
+      // Store the session ID for future use
+      await context.globalState.update('githubSessionId', session.id);
+      
       services.githubService.setToken(session.accessToken);
       const username = await services.githubService.getUsername();
 
       if (username) {
-        // Get persisted state
-        const persistedState =
-          context.globalState.get<PersistedAuthState>('devtrackAuthState');
-        const currentWorkspace =
-          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-
-        // Initialize with persisted or default settings
+        const persistedState = context.globalState.get<PersistedAuthState>('devtrackAuthState');
+        const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
         const config = vscode.workspace.getConfiguration('devtrack');
-        const repoName =
-          config.get<string>('repoName') ||
-          persistedState?.repoName ||
-          'code-tracking';
+        const repoName = config.get<string>('repoName') || persistedState?.repoName || 'code-tracking';
         const remoteUrl = `https://github.com/${username}/${repoName}.git`;
 
-        const visibilityChoice = await vscode.window.showQuickPick(['Private', 'Public'], {
-          placeHolder: 'Select repository visibility',
-          title: 'Repository Privacy Setting',
-          ignoreFocusOut: true,
-        });
-        const isPrivate = visibilityChoice === 'Private';
+        const repoExists = await services.githubService.repoExists(repoName);
+        let isPrivate = true;
+
+        if (!repoExists) {
+          const visibilityChoice = await vscode.window.showQuickPick(
+            ['Private', 'Public'],
+            {
+              placeHolder: 'Select repository visibility',
+              title: 'Repository Privacy Setting',
+              ignoreFocusOut: true,
+            }
+          );
+          isPrivate = visibilityChoice === 'Private';
+        }
+
         await setupRepository(services, repoName, remoteUrl, isPrivate);
         await initializeTracker(services);
 
-        // Update UI
         updateStatusBar(services, 'auth', true);
         updateStatusBar(services, 'tracking', true);
 
-        // Update persisted state
         await context.globalState.update('devtrackAuthState', {
           username,
           repoName,
           lastWorkspace: currentWorkspace,
         });
 
-        services.outputChannel.appendLine(
-          'DevTrack: Successfully restored authentication state'
-        );
+        services.outputChannel.appendLine('DevTrack: Successfully restored authentication state');
         return true;
       }
     }
   } catch (error) {
-    services.outputChannel.appendLine(
-      `DevTrack: Error restoring auth state - ${error}`
-    );
+    services.outputChannel.appendLine(`DevTrack: Error restoring auth state - ${error}`);
   }
   return false;
 }
 
-async function initializeServices(
-  context: vscode.ExtensionContext
-): Promise<DevTrackServices | null> {
+async function initializeServices(context: vscode.ExtensionContext): Promise<DevTrackServices | null> {
   const outputChannel = vscode.window.createOutputChannel('DevTrack');
   context.subscriptions.push(outputChannel);
   outputChannel.appendLine('DevTrack: Extension activated.');
@@ -495,7 +497,7 @@ async function initializeServices(
   const services: DevTrackServices = {
     outputChannel,
     githubService,
-    gitService: new GitService(outputChannel,githubService),
+    gitService: new GitService(outputChannel, githubService),
     tracker: new Tracker(outputChannel),
     summaryGenerator: new SummaryGenerator(outputChannel),
     scheduler: null,
@@ -505,20 +507,14 @@ async function initializeServices(
   };
 
   // Add status bars to subscriptions
-  context.subscriptions.push(
-    services.trackingStatusBar,
-    services.authStatusBar
-  );
+  context.subscriptions.push(services.trackingStatusBar, services.authStatusBar);
 
-  // Try to restore authentication state
+  // Try to restore authentication state silently
   const authRestored = await restoreAuthenticationState(context, services);
 
+  // Only show auth prompt if restoration failed and user hasn't chosen "Don't Ask Again"
   if (!authRestored) {
-    // If restoration failed, check if we should show the initial setup prompt
-    const shouldPrompt = context.globalState.get(
-      'devtrackShouldPromptAuth',
-      true
-    );
+    const shouldPrompt = context.globalState.get('devtrackShouldPromptAuth', true);
     if (shouldPrompt) {
       const response = await vscode.window.showInformationMessage(
         'DevTrack needs to connect to GitHub. Would you like to connect now?',
@@ -662,20 +658,18 @@ async function registerCommands(
       try {
         services.githubService.setToken('');
         const session = await vscode.authentication.getSession(
-          'github',
-          ['repo', 'read:user', 'user:email'],
-          { forceNewSession: true }
+          GITHUB_AUTH_PROVIDER,
+          GITHUB_AUTH_SCOPES,
+          { createIfNone: true }
         );
-
+  
         if (session) {
+          // Store the session ID
+          await context.globalState.update('githubSessionId', session.id);
           await initializeDevTrack(services);
         } else {
-          services.outputChannel.appendLine(
-            'DevTrack: GitHub connection canceled.'
-          );
-          vscode.window.showInformationMessage(
-            'DevTrack: GitHub connection was canceled.'
-          );
+          services.outputChannel.appendLine('DevTrack: GitHub connection canceled.');
+          vscode.window.showInformationMessage('DevTrack: GitHub connection was canceled.');
         }
       } catch (error: any) {
         handleError(services, 'GitHub connection failed', error);
@@ -844,6 +838,7 @@ async function initializeTracker(services: DevTrackServices) {
   services.scheduler.start();
 }
 
+
 async function handleLogout(services: DevTrackServices) {
   const confirm = await vscode.window.showWarningMessage(
     'Are you sure you want to logout from DevTrack?',
@@ -853,10 +848,13 @@ async function handleLogout(services: DevTrackServices) {
   );
 
   if (confirm !== 'Yes') {
-    services.outputChannel.appendLine('DevTrack: Logout canceled by user.');
+    services.outputChannel.appendLine('DevTrack: Logout cancelled by user.');
     return;
   }
 
+  // Clear stored session ID
+  await services.extensionContext.globalState.update('githubSessionId', undefined);
+  
   cleanup(services);
 
   const loginChoice = await vscode.window.showInformationMessage(
