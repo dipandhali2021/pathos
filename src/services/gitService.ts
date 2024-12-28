@@ -722,24 +722,19 @@ node_modules/
         throw new Error('Git not initialized');
       }
 
-      // Create timestamp for log file
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const logFile = path.join(trackingFolder, 'logs', `${timestamp}.log`);
 
-      // Ensure logs directory exists
       const logsDir = path.dirname(logFile);
       if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
       }
 
-      // Write changes to log file
       fs.writeFileSync(logFile, message);
 
-      // Add and commit changes
       await this.git.add('.');
       await this.git.commit(message);
 
-      // Push changes
       try {
         await this.git.push('origin', 'main');
       } catch (pushError: any) {

@@ -9,6 +9,7 @@ import { Scheduler } from './services/scheduler';
 import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import { WorkspaceInitializationService } from './services/workspaceInitializationService';
 
 const GITHUB_AUTH_PROVIDER = 'github';
 const GITHUB_AUTH_SCOPES = ['repo', 'read:user', 'user:email']; 
@@ -417,6 +418,7 @@ interface DevTrackServices {
   trackingStatusBar: vscode.StatusBarItem;
   authStatusBar: vscode.StatusBarItem;
   extensionContext: vscode.ExtensionContext;
+  workspaceInitService: WorkspaceInitializationService;
 }
 
 async function restoreAuthenticationState(
@@ -492,7 +494,7 @@ async function initializeServices(context: vscode.ExtensionContext): Promise<Dev
   const outputChannel = vscode.window.createOutputChannel('DevTrack');
   context.subscriptions.push(outputChannel);
   outputChannel.appendLine('DevTrack: Extension activated.');
-
+  const workspaceInitService = new WorkspaceInitializationService(outputChannel);
   const githubService = new GitHubService(outputChannel);
   const services: DevTrackServices = {
     outputChannel,
@@ -504,11 +506,13 @@ async function initializeServices(context: vscode.ExtensionContext): Promise<Dev
     trackingStatusBar: createStatusBarItem('tracking'),
     authStatusBar: createStatusBarItem('auth'),
     extensionContext: context,
+    workspaceInitService
   };
-
+  
   // Add status bars to subscriptions
   context.subscriptions.push(services.trackingStatusBar, services.authStatusBar);
-
+  await services.workspaceInitService.initializeWorkspace();
+  
   // Try to restore authentication state silently
   const authRestored = await restoreAuthenticationState(context, services);
 
