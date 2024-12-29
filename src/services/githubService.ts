@@ -18,6 +18,9 @@ export class GitHubService {
     this.token = token;
     this.octokit = new Octokit({ auth: this.token });
   }
+  public isAuthenticated(): boolean {
+    return Boolean(this.token);
+  }
 
   async createRepo(
     repoName: string = GitHubService.DEFAULT_REPO_NAME,

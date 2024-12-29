@@ -56,6 +56,16 @@
         "command": "devtrack.updateRepoVisibility",
         "title": "DevTrack: Update Repository Visibility",
         "category": "DevTrack"
+      },
+      {
+        "command": "devtrack.updateCommitFrequency",
+        "title": "DevTrack: Update Commit Frequency",
+        "category": "DevTrack"
+      },
+      {
+        "command": "devtrack.toggleConfirmBeforeCommit",
+        "title": "DevTrack: Toggle Commit Confirmation",
+        "category": "DevTrack"
       }
     ],
     "configuration": {

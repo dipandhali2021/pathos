@@ -10,6 +10,8 @@ import { execSync } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import { WorkspaceInitializationService } from './services/workspaceInitializationService';
+import { SettingsService } from './services/settingsService';
+import { StatusBarMenuService } from './services/statusBarMenuService';
 
 const GITHUB_AUTH_PROVIDER = 'github';
 const GITHUB_AUTH_SCOPES = ['repo', 'read:user', 'user:email']; 
@@ -419,6 +421,8 @@ interface DevTrackServices {
   authStatusBar: vscode.StatusBarItem;
   extensionContext: vscode.ExtensionContext;
   workspaceInitService: WorkspaceInitializationService;
+  settingsService: SettingsService;
+  statusBarMenuService?: StatusBarMenuService;
 }
 
 async function restoreAuthenticationState(
@@ -506,7 +510,8 @@ async function initializeServices(context: vscode.ExtensionContext): Promise<Dev
     trackingStatusBar: createStatusBarItem('tracking'),
     authStatusBar: createStatusBarItem('auth'),
     extensionContext: context,
-    workspaceInitService
+    workspaceInitService,
+    settingsService: new SettingsService(outputChannel),
   };
   
   // Add status bars to subscriptions
@@ -577,7 +582,6 @@ async function loadConfiguration(services: DevTrackServices): Promise<boolean> {
 
   return true;
 }
-// ... [Previous code remains the same] ...
 
 async function registerCommands(
   context: vscode.ExtensionContext,
@@ -691,6 +695,24 @@ async function registerCommands(
     () => services.githubService.updateRepoVisibility()
   );
 
+  const updateCommitFrequency = vscode.commands.registerCommand(
+    'devtrack.updateCommitFrequency',
+    () => services.settingsService.updateCommitFrequency()
+  );
+
+  const toggleConfirmBeforeCommit = vscode.commands.registerCommand(
+    'devtrack.toggleConfirmBeforeCommit',
+    () => services.settingsService.toggleConfirmBeforeCommit()
+  );
+  const statusBarMenu = new StatusBarMenuService(services);
+  context.subscriptions.push(statusBarMenu);
+
+   // Add menu command
+   const showMenu = vscode.commands.registerCommand(
+    'devtrack.showMenu',
+    () => statusBarMenu.showMenu()
+  );
+
 
   // Add to subscriptions
   context.subscriptions.push(
@@ -698,22 +720,29 @@ async function registerCommands(
     stopTracking,
     loginCommand,
     logoutCommand,
-    updateRepoVisibilityCmd
+    updateRepoVisibilityCmd,
+    updateCommitFrequency,
+    toggleConfirmBeforeCommit,
+    showMenu
   );
+
+  services.trackingStatusBar.hide();
+  services.authStatusBar.hide();
 }
 
-// Update the interface to include extensionContext
-interface DevTrackServices {
-  outputChannel: vscode.OutputChannel;
-  githubService: GitHubService;
-  gitService: GitService;
-  tracker: Tracker;
-  summaryGenerator: SummaryGenerator;
-  scheduler: Scheduler | null;
-  trackingStatusBar: vscode.StatusBarItem;
-  authStatusBar: vscode.StatusBarItem;
-  extensionContext: vscode.ExtensionContext;
-}
+// // Update the interface to include extensionContext
+// interface DevTrackServices {
+//   outputChannel: vscode.OutputChannel;
+//   githubService: GitHubService;
+//   gitService: GitService;
+//   tracker: Tracker;
+//   summaryGenerator: SummaryGenerator;
+//   scheduler: Scheduler | null;
+//   trackingStatusBar: vscode.StatusBarItem;
+//   authStatusBar: vscode.StatusBarItem;
+//   extensionContext: vscode.ExtensionContext;
+//   statusBarMenuService: StatusBarMenuService;
+// }
 
 
 async function initializeDevTrack(services: DevTrackServices) {
