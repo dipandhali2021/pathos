@@ -2,21 +2,22 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { EncryptionService } from './encryption';
+import { ProjectManager } from './projectManager';
 
 export class FileCache {
   private cache: Map<string, string> = new Map();
   private initialized: Set<string> = new Set();
-  private persistPath: string;
   private encryption: EncryptionService;
+  private projectManager: ProjectManager;
 
   constructor(private outputChannel: vscode.OutputChannel) {
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (!workspaceRoot) {
-      throw new Error('No workspace folder found');
-    }
-    this.persistPath = path.join(workspaceRoot, '.devtrack', 'cache.json');
     this.encryption = new EncryptionService();
+    this.projectManager = new ProjectManager(outputChannel);
     this.loadPersistedCache();
+  }
+
+  private get persistPath(): string {
+    return path.join(this.projectManager.getProjectCacheFolder(), 'cache.json');
   }
 
   private async loadPersistedCache() {
@@ -35,7 +36,7 @@ export class FileCache {
         });
         
         this.initialized = new Set(rawData.initialized);
-        this.outputChannel.appendLine('DevTrack: Loaded and decrypted persisted file cache');
+        this.outputChannel.appendLine(`DevTrack: Loaded and decrypted persisted file cache for project: ${this.projectManager.getProjectIdentifier()}`);
       }
     } catch (error) {
       this.outputChannel.appendLine(`DevTrack: Error loading persisted cache: ${error}`);

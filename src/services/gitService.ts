@@ -11,6 +11,7 @@ import { execSync } from 'child_process';
 const execAsync = promisify(exec);
 import * as fs from 'fs';
 import { GitHubService } from './githubService';
+import { ProjectManager } from './projectManager';
 
 interface GitServiceEvents {
   commit: (message: string) => void;
@@ -22,7 +23,7 @@ interface GitServiceEvents {
 }
 export class GitService extends EventEmitter {
   private git!: SimpleGit;
-  private repoPath!: string;
+  private projectManager: ProjectManager;
   private outputChannel: OutputChannel;
   private operationQueue: Promise<any> = Promise.resolve();
   private static MAX_RETRIES = 3;
@@ -30,6 +31,8 @@ export class GitService extends EventEmitter {
   private readonly isWindows: boolean = process.platform === 'win32';
   private static readonly MAX_LISTENERS = 10;
   private trackingFolder: string;
+  private repoPath!: string;
+
   private boundListeners: Set<{
     event: keyof GitServiceEvents;
     listener: Function;
@@ -41,6 +44,7 @@ export class GitService extends EventEmitter {
     this.setMaxListeners(GitService.MAX_LISTENERS);
     this.outputChannel = outputChannel;
     this.githubService = githubService;
+    this.projectManager = new ProjectManager(outputChannel);
     this.trackingFolder = '';
     this.initializeWorkspace();
     this.setupDefaultErrorHandler();
@@ -480,99 +484,6 @@ export class GitService extends EventEmitter {
   }
 
 
-  // public async initializeRepo(remoteUrl: string): Promise<void> {
-  //   try {
-  //     const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  //     if (!workspaceRoot) {
-  //       throw new Error('No workspace folder found');
-  //     }
-
-  //     const trackingFolder = path.join(workspaceRoot, '.devtrack');
-
-  //     // Create tracking folder if it doesn't exist
-  //     fs.mkdirSync(trackingFolder, { recursive: true });
-
-  //     // Initialize git instance
-  //     this.ensureGitInitialized(trackingFolder);
-
-  //     if (!this.git) {
-  //       throw new Error('Failed to initialize git');
-  //     }
-
-  //     // Initialize git repository
-  //     await this.git.init();
-
-  //     // Check existing git config
-  //     const gitConfig = await this.checkGitConfig();
-
-  //     if (!gitConfig.name || !gitConfig.email) {
-  //       // Get GitHub username from GitHub service
-  //       const username = await this.githubService.getUsername();
-  //       if (!username) {
-  //         throw new Error('Failed to get GitHub username');
-  //       }
-
-  //       // If email is not set, prompt user for email
-  //       if (!gitConfig.email) {
-  //         const email = await vscode.window.showInputBox({
-  //           prompt: 'Please enter your email address for Git configuration',
-  //           placeHolder: 'your.email@example.com',
-  //           validateInput: (value) => {
-  //             const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  //             return emailRegex.test(value) ? null : 'Please enter a valid email address';
-  //           }
-  //         });
-
-  //         if (!email) {
-  //           throw new Error('Email is required for Git configuration');
-  //         }
-
-  //         // Set global Git configuration
-  //         await this.setGlobalGitConfig(username, email);
-  //       }
-  //     }
-
-
-  //     // Setup remote
-  //     const remotes = await this.git.getRemotes();
-  //     if (remotes.find(remote => remote.name === 'origin')) {
-  //       await this.git.removeRemote('origin');
-  //     }
-  //     await this.git.addRemote('origin', remoteUrl);
-
-  //     // Ensure directory structure
-  //     await this.ensureDirectoryStructure();
-
-  //     // Setup main branch
-  //     try {
-  //       await this.git.checkoutLocalBranch('main');
-  //     } catch {
-  //       await this.git.checkout('main');
-  //     }
-
-  //     // Initial push
-  //     try {
-  //       await this.git.push('origin', 'main', ['--force-with-lease']);
-  //     } catch (error: any) {
-  //       if (error.message.includes('rejected')) {
-  //         await this.git.fetch('origin');
-  //         await this.git.reset(['--hard', 'origin/main']);
-  //         await this.git.pull('origin', 'main', ['--rebase']);
-  //         await this.ensureDirectoryStructure();
-  //         await this.git.push('origin', 'main');
-  //       } else {
-  //         throw error;
-  //       }
-  //     }
-
-  //     this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
-  //   } catch (error: any) {
-  //     this.outputChannel.appendLine(`DevTrack: Initialization failed - ${error.message}`);
-  //     throw error;
-  //   }
-  // }
-
-
   public async initializeRepo(remoteUrl: string): Promise<void> {
     try {
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -634,6 +545,10 @@ export class GitService extends EventEmitter {
 
       // Ensure directory structure
       await this.ensureDirectoryStructure();
+
+
+       // Track project files
+      // await this.ensureProjectFilesTracked();
 
       // Setup main branch
       try {
@@ -715,15 +630,15 @@ node_modules/
         throw new Error('No workspace folder found');
       }
 
-      const trackingFolder = path.join(workspaceRoot, '.devtrack');
-      this.ensureGitInitialized(trackingFolder);
+      const projectLogFolder = this.projectManager.getProjectLogFolder();
+      this.ensureGitInitialized(projectLogFolder);
 
       if (!this.git) {
         throw new Error('Git not initialized');
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const logFile = path.join(trackingFolder, 'logs', `${timestamp}.log`);
+      const logFile = path.join(projectLogFolder, `${timestamp}.log`);
 
       const logsDir = path.dirname(logFile);
       if (!fs.existsSync(logsDir)) {
@@ -731,7 +646,6 @@ node_modules/
       }
 
       fs.writeFileSync(logFile, message);
-
       await this.git.add('.');
       await this.git.commit(message);
 
@@ -746,7 +660,7 @@ node_modules/
         }
       }
 
-      this.outputChannel.appendLine('DevTrack: Changes committed and pushed successfully');
+      this.outputChannel.appendLine(`DevTrack: Changes committed and pushed successfully for project: ${this.projectManager.getProjectIdentifier()}`);
     } catch (error: any) {
       this.outputChannel.appendLine(`DevTrack: Error in commit and push - ${error.message}`);
       throw error;
