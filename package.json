@@ -67,6 +67,7 @@
         "title": "DevTrack: Toggle Commit Confirmation",
         "category": "DevTrack"
       }
+      
     ],
     "configuration": {
       "type": "object",
@@ -94,6 +95,16 @@
           },
           "default": [],
           "description": "List of glob patterns to exclude from tracking."
+        },
+        "devtrack.aiApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Google AI API Key for AI insights"
+        },
+        "devtrack.enableAiInsights": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable or disable AI insights in generated reports"
         }
       }
     }

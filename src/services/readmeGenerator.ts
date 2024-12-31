@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Change } from './tracker';
 import { FileCache } from './fileCache';
 import { ProductivityTracker } from './productivityTracker';
+import { AIAnalysisService } from './aiAnalysisService';
 
 export class ReadmeGenerator {
     private fileCache: FileCache;
@@ -38,8 +39,8 @@ export class ReadmeGenerator {
 
     private generateBadges(projectName: string, timestamp: Date): string {
         const dateStr = this.formatShortDate(timestamp);
-        return `[![Project Status: Active](https://img.shields.io/badge/Project-Active-green.svg)]
-[![Last Commit](https://img.shields.io/badge/Last%20Commit-${encodeURIComponent(dateStr)}-blue.svg)]\n\n`;
+        return `![Project Status: Active](https://img.shields.io/badge/Project-Active-green.svg)
+![Last Commit](https://img.shields.io/badge/Last%20Commit-${encodeURIComponent(dateStr)}-blue.svg)\n\n`;
     }
 
     private generateProgressBar(value: number, max: number, length: number = 30): string {
@@ -178,15 +179,18 @@ pie
                     content = `### ${filename} (Modified)\n`;
                     content += `${additions} additions, ${deletions} deletions\n\n`;
 
+                    content += '```\n';
 
-
-
-                    content += '`\`\`diff\n';
+                    // Append the preview lines and ensure a newline after the last line
                     const previewLines = diffLines.slice(0, 10);
-                    content += previewLines.join('\n');
+                    content += previewLines.join('\n') + '\n'; // Ensure newline at the end
+
+                    // Add truncation message if too many lines
                     if (diffLines.length > 10) {
                         content += '// ...\n';
                     }
+
+                    // Close the diff block
                     content += '```\n\n';
 
 
@@ -253,6 +257,20 @@ pie
         content += `- **Timestamp**: ${this.formatDate(timestamp)}\n`;
         content += `- **Type**: ${this.determineChangeType(totalAdditions, totalDeletions)}\n`;
         content += `- **Impact**: ${this.determineImpact(totalAdditions + totalDeletions)}\n`;
+
+        // AI Insights - Only add if enabled
+        const config = vscode.workspace.getConfiguration('devtrack');
+        const aiEnabled = config.get<boolean>('enableAiInsights', true);
+
+        if (aiEnabled) {
+            const aiAnalysis = new AIAnalysisService(this.outputChannel);
+            try {
+                const analysis = await aiAnalysis.analyzeChanges(changes);
+                content += '\n' + aiAnalysis.formatAnalysisForReadme(analysis);
+            } catch (error) {
+                this.outputChannel.appendLine(`Error generating AI insights: ${error}`);
+            }
+        }
 
         // Footer
         content += '\n---\n\n';
