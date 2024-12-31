@@ -65,7 +65,7 @@ export class Scheduler {
       const config = vscode.workspace.getConfiguration('devtrack');
       if (config.get<boolean>('confirmBeforeCommit', true)) {
         const userResponse = await vscode.window.showInformationMessage(
-          `DevTrack: A commit will be made with the following message:\n"${commitMessage}"`,
+          `DevTrack: A commit will be made with the following message:\n"${commitMessage[0]}"`,
           { modal: true },
           'Proceed',
           'Cancel'
@@ -79,10 +79,10 @@ export class Scheduler {
         }
       }
 
-      await this.gitService.commitAndPush(commitMessage);
+      await this.gitService.commitAndPush(commitMessage[0],commitMessage[1]);
       this.tracker.clearChanges();
       this.outputChannel.appendLine(
-        `Scheduler: Committed changes with message "${commitMessage}".`
+        `Scheduler: Committed changes with message "${commitMessage[0]}".`
       );
     } catch (error: any) {
       this.outputChannel.appendLine(

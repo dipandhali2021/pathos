@@ -554,8 +554,10 @@ export class GitService extends EventEmitter {
         await this.git.checkout('main');
       }
 
+      //TODO: intial push
+
       this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
-      
+
     } catch (error: any) {
       this.outputChannel.appendLine(`DevTrack: Initialization failed - ${error.message}`);
       throw error;
@@ -568,7 +570,7 @@ export class GitService extends EventEmitter {
         throw new Error('Git not properly initialized');
       }
 
-    
+
 
       // Update .gitignore
       const gitignorePath = path.join(this.trackingFolder, '.gitignore');
@@ -581,7 +583,7 @@ node_modules/
 `;
       fs.writeFileSync(gitignorePath, gitignoreContent);
 
-     
+
       try {
         await this.git.commit('Initialize DevTrack directory structure');
       } catch (error) {
@@ -595,7 +597,8 @@ node_modules/
     }
   }
 
-  public async commitAndPush(message: string): Promise<void> {
+  // Update the commitAndPush method in GitService
+  public async commitAndPush(message: string, readme:any): Promise<void> {
     try {
       const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (!workspaceRoot) {
@@ -611,20 +614,21 @@ node_modules/
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const logFile = path.join(projectLogFolder, `${timestamp}.log`);
+      const readmeFile = path.join(projectLogFolder, `README-${timestamp}.md`);
 
-      const logsDir = path.dirname(logFile);
+      const logsDir = path.dirname(readmeFile);
       if (!fs.existsSync(logsDir)) {
         fs.mkdirSync(logsDir, { recursive: true });
       }
 
-      fs.writeFileSync(logFile, message);
-      // await this.git.add('.');
+      fs.writeFileSync(readmeFile, readme);
+
       await this.git.add([
         path.join(projectFolder, 'cache/cache.json'),
         path.join(projectFolder, 'project.json'),
         path.join(projectFolder, 'logs/*')
       ]);
+
       await this.git.commit(message);
 
       try {
@@ -638,9 +642,13 @@ node_modules/
         }
       }
 
-      this.outputChannel.appendLine(`DevTrack: Changes committed and pushed successfully for project: ${this.projectManager.getProjectIdentifier()}`);
+      this.outputChannel.appendLine(
+        `DevTrack: Changes committed and pushed successfully for project: ${this.projectManager.getProjectIdentifier()}`
+      );
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Error in commit and push - ${error.message}`);
+      this.outputChannel.appendLine(
+        `DevTrack: Error in commit and push - ${error.message}`
+      );
       throw error;
     }
   }

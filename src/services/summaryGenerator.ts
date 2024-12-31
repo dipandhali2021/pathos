@@ -3,16 +3,19 @@ import * as path from 'path';
 import { Change } from './tracker';
 import { FileCache } from './fileCache';
 import { ProductivityTracker } from './productivityTracker';
+import { ReadmeGenerator } from './readmeGenerator';
 
 export class SummaryGenerator {
   private fileCache: FileCache;
   private outputChannel: vscode.OutputChannel;
   private productivityTracker: ProductivityTracker;
+  private readmeGenerator: ReadmeGenerator;
 
   constructor(outputChannel: vscode.OutputChannel) {
     this.outputChannel = outputChannel;
     this.fileCache = new FileCache(outputChannel);
     this.productivityTracker = new ProductivityTracker(outputChannel);
+    this.readmeGenerator= new ReadmeGenerator(outputChannel);
   }
 
 
@@ -39,23 +42,23 @@ export class SummaryGenerator {
     let lcsIndex = 0;
 
     while (oldIndex < oldLines.length || newIndex < newLines.length) {
-      if (lcsIndex < lcs.length && 
-          oldIndex < oldLines.length && 
-          newIndex < newLines.length && 
-          oldLines[oldIndex] === lcs[lcsIndex] && 
-          newLines[newIndex] === lcs[lcsIndex]) {
+      if (lcsIndex < lcs.length &&
+        oldIndex < oldLines.length &&
+        newIndex < newLines.length &&
+        oldLines[oldIndex] === lcs[lcsIndex] &&
+        newLines[newIndex] === lcs[lcsIndex]) {
         // Line unchanged
         oldIndex++;
         newIndex++;
         lcsIndex++;
-      } else if (newIndex < newLines.length && 
-                (lcsIndex >= lcs.length || newLines[newIndex] !== lcs[lcsIndex])) {
+      } else if (newIndex < newLines.length &&
+        (lcsIndex >= lcs.length || newLines[newIndex] !== lcs[lcsIndex])) {
         // Line added
         diffLines.push(`    + ${newLines[newIndex]}`);
         additions++;
         newIndex++;
-      } else if (oldIndex < oldLines.length && 
-                (lcsIndex >= lcs.length || oldLines[oldIndex] !== lcs[lcsIndex])) {
+      } else if (oldIndex < oldLines.length &&
+        (lcsIndex >= lcs.length || oldLines[oldIndex] !== lcs[lcsIndex])) {
         // Line deleted
         diffLines.push(`    - ${oldLines[oldIndex]}`);
         deletions++;
@@ -135,7 +138,7 @@ export class SummaryGenerator {
           const oldContent = this.fileCache.getCachedContent(change.uri) || '';
           const newContent = await this.getFileContent(change.uri);
           const { additions, deletions, diffLines } = await this.calculateDiff(oldContent, newContent);
-          
+
           summary = `${filename} (Modified)\n    ${additions} additions, ${deletions} deletions\n`;
           if (diffLines.length > 0) {
             const previewLines = diffLines.slice(0, 5);
@@ -157,7 +160,7 @@ export class SummaryGenerator {
     }
   }
 
-  async generateSummary(changedFiles: Change[]): Promise<string> {
+  async generateSummary(changedFiles: Change[]): Promise<string[]> {
     try {
       // Track changes for productivity metrics
       this.productivityTracker.trackChanges(changedFiles);
@@ -175,23 +178,25 @@ export class SummaryGenerator {
       );
 
       let summary = 'DevTrack: Changes detected\n\n';
-      
+
       // Add productivity metrics
       summary += this.productivityTracker.getProductivityMetrics();
-      
+
       summary += '\n\nChanges:\n';
       summary += fileChanges.join('\n\n');
-      summary += `\n\nSummary: ${stats.added || 0} files added, ${
-        stats.changed || 0
-      } files modified, ${stats.deleted || 0} files deleted`;
-
+      summary += `\n\nSummary: ${stats.added || 0} files added, ${stats.changed || 0
+        } files modified, ${stats.deleted || 0} files deleted`;
+      // Generate detailed README content
+      const readmeContent = await this.readmeGenerator.generateReadme(changedFiles);
       // Reset productivity tracker after generating summary
       this.productivityTracker.reset();
 
-      return summary;
+      const detail= [summary,readmeContent]
+
+      return detail;
     } catch (error) {
       this.outputChannel.appendLine(`Summary generation error: ${error}`);
-      return 'DevTrack: Error generating change summary';
+      return ['DevTrack: Error generating change summary'];
     }
   }
 }
