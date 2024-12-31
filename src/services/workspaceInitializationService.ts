@@ -83,7 +83,7 @@ export class WorkspaceInitializationService {
       const projectFolder = this.projectManager.getProjectFolder();
       
       // Create only the cache folder
-      const projectFolders = ['cache'];
+      const projectFolders = ['cache','logs'];
       
       projectFolders.forEach(folder => {
         const folderPath = path.join(projectFolder, folder);

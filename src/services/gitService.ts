@@ -493,8 +493,8 @@ export class GitService extends EventEmitter {
 
       const trackingFolder = path.join(workspaceRoot, '.devtrack');
 
-      // Create tracking folder if it doesn't exist
-      fs.mkdirSync(trackingFolder, { recursive: true });
+      // // Create tracking folder if it doesn't exist
+      // fs.mkdirSync(trackingFolder, { recursive: true });
 
       // Initialize git instance
       this.ensureGitInitialized(trackingFolder);
@@ -547,9 +547,6 @@ export class GitService extends EventEmitter {
       await this.ensureDirectoryStructure();
 
 
-       // Track project files
-      // await this.ensureProjectFilesTracked();
-
       // Setup main branch
       try {
         await this.git.checkoutLocalBranch('main');
@@ -557,23 +554,8 @@ export class GitService extends EventEmitter {
         await this.git.checkout('main');
       }
 
-      // Initial push
-      try {
-        await this.git.push('origin', 'main', ['--force-with-lease']);
-      } catch (error: any) {
-        if (error.message.includes('rejected')) {
-          await this.git.fetch('origin');
-          await this.git.reset(['--hard', 'origin/main']);
-          await this.git.pull('origin', 'main', ['--rebase']);
-          await this.ensureDirectoryStructure();
-          await this.git.push('origin', 'main');
-        } else {
-          throw error;
-        }
-      }
-
       this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
-
+      
     } catch (error: any) {
       this.outputChannel.appendLine(`DevTrack: Initialization failed - ${error.message}`);
       throw error;
@@ -586,16 +568,7 @@ export class GitService extends EventEmitter {
         throw new Error('Git not properly initialized');
       }
 
-      // Create necessary folders
-      const logsFolder = path.join(this.trackingFolder, 'logs');
-      const statsFolder = path.join(this.trackingFolder, 'stats');
-
-      fs.mkdirSync(logsFolder, { recursive: true });
-      fs.mkdirSync(statsFolder, { recursive: true });
-
-      // Create .gitkeep files
-      fs.writeFileSync(path.join(logsFolder, '.gitkeep'), '');
-      fs.writeFileSync(path.join(statsFolder, '.gitkeep'), '');
+    
 
       // Update .gitignore
       const gitignorePath = path.join(this.trackingFolder, '.gitignore');
@@ -608,8 +581,7 @@ node_modules/
 `;
       fs.writeFileSync(gitignorePath, gitignoreContent);
 
-      // Add and commit the structure
-      await this.git.add(['.gitignore', 'logs/.gitkeep', 'stats/.gitkeep']);
+     
       try {
         await this.git.commit('Initialize DevTrack directory structure');
       } catch (error) {
@@ -631,6 +603,7 @@ node_modules/
       }
 
       const projectLogFolder = this.projectManager.getProjectLogFolder();
+      const projectFolder = this.projectManager.getProjectFolder();
       this.ensureGitInitialized(projectLogFolder);
 
       if (!this.git) {
@@ -646,7 +619,12 @@ node_modules/
       }
 
       fs.writeFileSync(logFile, message);
-      await this.git.add('.');
+      // await this.git.add('.');
+      await this.git.add([
+        path.join(projectFolder, 'cache/cache.json'),
+        path.join(projectFolder, 'project.json'),
+        path.join(projectFolder, 'logs/*')
+      ]);
       await this.git.commit(message);
 
       try {
