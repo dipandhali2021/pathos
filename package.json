@@ -115,6 +115,7 @@
     "test": "vscode-test"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.21.0",
     "@octokit/rest": "^21.0.2",
     "crypto": "^1.0.1",
     "minimatch": "^10.0.1",

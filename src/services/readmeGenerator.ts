@@ -1,228 +1,280 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { Change } from './tracker';
-import { DiffCalculator } from './diffCalculator';
 import { FileCache } from './fileCache';
 import { ProductivityTracker } from './productivityTracker';
-import * as path from 'path';
 
 export class ReadmeGenerator {
-  private diffCalculator: DiffCalculator;
-  private fileCache: FileCache;
-  private productivityTracker: ProductivityTracker;
+    private fileCache: FileCache;
+    private productivityTracker: ProductivityTracker;
 
-  constructor(private outputChannel: vscode.OutputChannel) {
-    this.diffCalculator = new DiffCalculator(outputChannel);
-    this.fileCache = new FileCache(outputChannel);
-    this.productivityTracker = new ProductivityTracker(outputChannel);
-  }
-
-  private async getFileContent(uri: vscode.Uri): Promise<string> {
-    try {
-      const document = await vscode.workspace.openTextDocument(uri);
-      return document.getText();
-    } catch (error) {
-      return '';
-    }
-  }
-
-  private formatDate(date: Date): string {
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
-  }
-
-  private async calculateDiff(oldContent: string, newContent: string): Promise<{ additions: number; deletions: number; diffLines: string[] }> {
-    const oldLines = oldContent.split('\n');
-    const newLines = newContent.split('\n');
-    const diffLines: string[] = [];
-    let additions = 0;
-    let deletions = 0;
-
-    // Use longest common subsequence to find actual changes
-    const lcs = this.getLCS(oldLines, newLines);
-    let oldIndex = 0;
-    let newIndex = 0;
-    let lcsIndex = 0;
-
-    while (oldIndex < oldLines.length || newIndex < newLines.length) {
-      if (lcsIndex < lcs.length &&
-        oldIndex < oldLines.length &&
-        newIndex < newLines.length &&
-        oldLines[oldIndex] === lcs[lcsIndex] &&
-        newLines[newIndex] === lcs[lcsIndex]) {
-        // Line unchanged
-        oldIndex++;
-        newIndex++;
-        lcsIndex++;
-      } else if (newIndex < newLines.length &&
-        (lcsIndex >= lcs.length || newLines[newIndex] !== lcs[lcsIndex])) {
-        // Line added
-        diffLines.push(`+ ${newLines[newIndex]}`);
-        additions++;
-        newIndex++;
-      } else if (oldIndex < oldLines.length &&
-        (lcsIndex >= lcs.length || oldLines[oldIndex] !== lcs[lcsIndex])) {
-        // Line deleted
-        diffLines.push(`- ${oldLines[oldIndex]}`);
-        deletions++;
-        oldIndex++;
-      }
+    constructor(private outputChannel: vscode.OutputChannel) {
+        this.fileCache = new FileCache(outputChannel);
+        this.productivityTracker = new ProductivityTracker(outputChannel);
     }
 
-    return { additions, deletions, diffLines };
-  }
-
-  private getLCS(arr1: string[], arr2: string[]): string[] {
-    const dp: number[][] = Array(arr1.length + 1).fill(0)
-      .map(() => Array(arr2.length + 1).fill(0));
-
-    // Fill the dp table
-    for (let i = 1; i <= arr1.length; i++) {
-      for (let j = 1; j <= arr2.length; j++) {
-        if (arr1[i - 1] === arr2[j - 1]) {
-          dp[i][j] = dp[i - 1][j - 1] + 1;
-        } else {
-          dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+    private async getFileContent(uri: vscode.Uri): Promise<string> {
+        try {
+            const document = await vscode.workspace.openTextDocument(uri);
+            return document.getText();
+        } catch (error) {
+            return '';
         }
-      }
     }
 
-    // Reconstruct the LCS
-    const lcs: string[] = [];
-    let i = arr1.length;
-    let j = arr2.length;
-
-    while (i > 0 && j > 0) {
-      if (arr1[i - 1] === arr2[j - 1]) {
-        lcs.unshift(arr1[i - 1]);
-        i--;
-        j--;
-      } else if (dp[i - 1][j] > dp[i][j - 1]) {
-        i--;
-      } else {
-        j--;
-      }
-    }
-
-    return lcs;
-  }
-
-  async generateReadme(changes: Change[]): Promise<string> {
-    // Track changes for productivity metrics
-    await this.productivityTracker.trackChanges(changes);
-
-    const timestamp = new Date();
-    let content = `# DevTrack Changes\n\n`;
-    content += `## ${this.formatDate(timestamp)}\n\n`;
-
-    // Add Productivity Metrics Section
-    content += `## Productivity Metrics\n\n`;
-    content += this.productivityTracker.getProductivityMetrics();
-    content += '\n\n';
-
-    // Group changes by type
-    const addedFiles: Change[] = [];
-    const modifiedFiles: Change[] = [];
-    const deletedFiles: Change[] = [];
-
-    changes.forEach(change => {
-      switch (change.type) {
-        case 'added':
-          addedFiles.push(change);
-          break;
-        case 'changed':
-          modifiedFiles.push(change);
-          break;
-        case 'deleted':
-          deletedFiles.push(change);
-          break;
-      }
-    });
-
-    // Added Files Section
-    if (addedFiles.length > 0) {
-      content += `## Added Files\n\n`;
-      for (const change of addedFiles) {
-        const fileName = path.basename(change.uri.fsPath);
-        const fileContent = await this.getFileContent(change.uri);
-        const lines = fileContent.split('\n').length;
-        content += `### \`${fileName}\`\n\n`;
-        content += `- **Lines**: ${lines}\n`;
-        content += `- **Path**: \`${vscode.workspace.asRelativePath(change.uri)}\`\n`;
-        content += `- **Preview**:\n\`\`\`diff\n`;
-        fileContent.split('\n').slice(0, 5).forEach(line => {
-          content += `+ ${line}\n`;
+    private formatDate(date: Date): string {
+        return date.toLocaleString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
         });
-        if (fileContent.split('\n').length > 5) {
-          content += '...\n';
-        }
-        content += '```\n\n';
-      }
     }
 
-    // Modified Files Section
-    if (modifiedFiles.length > 0) {
-      content += `## Modified Files\n\n`;
-      for (const change of modifiedFiles) {
-        const fileName = path.basename(change.uri.fsPath);
-        const oldContent = this.fileCache.getCachedContent(change.uri) || '';
-        const newContent = await this.getFileContent(change.uri);
-        const { additions, deletions, diffLines } = await this.calculateDiff(oldContent, newContent);
-
-        content += `### \`${fileName}\`\n\n`;
-        content += `- **Changes**: +${additions} -${deletions}\n`;
-        content += `- **Path**: \`${vscode.workspace.asRelativePath(change.uri)}\`\n`;
-        
-        if (diffLines.length > 0) {
-          content += `- **Details**:\n\`\`\`diff\n`;
-          diffLines.slice(0, 5).forEach(line => {
-            content += `${line}\n`;
-          });
-          if (diffLines.length > 5) {
-            content += `... ${diffLines.length - 5} more changes\n`;
-          }
-          content += '```\n\n';
-        }
-      }
+    private formatShortDate(date: Date): string {
+        return `${date.toLocaleString('en-US', { month: 'short' })} ${date.getDate()}, ${date.getFullYear()}`;
     }
 
-    // Deleted Files Section
-    if (deletedFiles.length > 0) {
-      content += `## Deleted Files\n\n`;
-      for (const change of deletedFiles) {
-        const fileName = path.basename(change.uri.fsPath);
-        const cachedContent = this.fileCache.getCachedContent(change.uri) || '';
-        const lines = cachedContent.split('\n').length;
-        content += `### \`${fileName}\`\n\n`;
-        content += `- **Lines Removed**: ${lines}\n`;
-        content += `- **Path**: \`${vscode.workspace.asRelativePath(change.uri)}\`\n`;
-        if (cachedContent) {
-          content += `- **Last Known Content**:\n\`\`\`diff\n`;
-          cachedContent.split('\n').slice(0, 5).forEach(line => {
-            content += `- ${line}\n`;
-          });
-          if (cachedContent.split('\n').length > 5) {
-            content += '...\n';
-          }
-          content += '```\n\n';
-        }
-      }
+    private generateBadges(projectName: string, timestamp: Date): string {
+        const dateStr = this.formatShortDate(timestamp);
+        return `[![Project Status: Active](https://img.shields.io/badge/Project-Active-green.svg)]
+[![Last Commit](https://img.shields.io/badge/Last%20Commit-${encodeURIComponent(dateStr)}-blue.svg)]\n\n`;
     }
 
-    // Summary Section
-    content += `## Summary\n\n`;
-    content += `- **Added Files**: ${addedFiles.length}\n`;
-    content += `- **Modified Files**: ${modifiedFiles.length}\n`;
-    content += `- **Deleted Files**: ${deletedFiles.length}\n`;
+    private generateProgressBar(value: number, max: number, length: number = 30): string {
+        const filled = Math.round((value / max) * length);
+        return '█'.repeat(filled) + '░'.repeat(Math.max(0, length - filled));
+    }
 
-    // Reset productivity tracker
-    this.productivityTracker.reset();
+    private generateMermaidChart(added: number, modified: number, deleted: number): string {
+        return `\`\`\`mermaid
+pie
+    title File Changes Distribution
+    "Modifications" : ${modified}
+    "Additions" : ${added}
+    "Deletions" : ${deleted}
+\`\`\``;
+    }
 
-    return content;
-  }
+    private async calculateDiff(oldContent: string, newContent: string): Promise<{ additions: number; deletions: number; diffLines: string[] }> {
+        const oldLines = oldContent.split('\n');
+        const newLines = newContent.split('\n');
+        const diffLines: string[] = [];
+        let additions = 0;
+        let deletions = 0;
+
+        const lcs = this.getLCS(oldLines, newLines);
+        let oldIndex = 0;
+        let newIndex = 0;
+        let lcsIndex = 0;
+
+        while (oldIndex < oldLines.length || newIndex < newLines.length) {
+            if (lcsIndex < lcs.length &&
+                oldIndex < oldLines.length &&
+                newIndex < newLines.length &&
+                oldLines[oldIndex] === lcs[lcsIndex] &&
+                newLines[newIndex] === lcs[lcsIndex]) {
+                oldIndex++;
+                newIndex++;
+                lcsIndex++;
+            } else if (newIndex < newLines.length &&
+                (lcsIndex >= lcs.length || newLines[newIndex] !== lcs[lcsIndex])) {
+                diffLines.push(`+ ${newLines[newIndex]}`);
+                additions++;
+                newIndex++;
+            } else if (oldIndex < oldLines.length &&
+                (lcsIndex >= lcs.length || oldLines[oldIndex] !== lcs[lcsIndex])) {
+                diffLines.push(`- ${oldLines[oldIndex]}`);
+                deletions++;
+                oldIndex++;
+            }
+        }
+
+        return { additions, deletions, diffLines };
+    }
+
+    private getLCS(arr1: string[], arr2: string[]): string[] {
+        const dp: number[][] = Array(arr1.length + 1).fill(0)
+            .map(() => Array(arr2.length + 1).fill(0));
+
+        for (let i = 1; i <= arr1.length; i++) {
+            for (let j = 1; j <= arr2.length; j++) {
+                if (arr1[i - 1] === arr2[j - 1]) {
+                    dp[i][j] = dp[i - 1][j - 1] + 1;
+                } else {
+                    dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
+                }
+            }
+        }
+
+        const lcs: string[] = [];
+        let i = arr1.length;
+        let j = arr2.length;
+
+        while (i > 0 && j > 0) {
+            if (arr1[i - 1] === arr2[j - 1]) {
+                lcs.unshift(arr1[i - 1]);
+                i--;
+                j--;
+            } else if (dp[i - 1][j] > dp[i][j - 1]) {
+                i--;
+            } else {
+                j--;
+            }
+        }
+
+        return lcs;
+    }
+
+    private async getDetailedFileChanges(change: Change): Promise<{ content: string; stats: { additions: number; deletions: number } }> {
+        const filename = path.basename(change.uri.fsPath);
+        let content = '';
+        let stats = { additions: 0, deletions: 0 };
+
+        try {
+            switch (change.type) {
+                case 'added': {
+                    const fileContent = await this.getFileContent(change.uri);
+                    const lines = fileContent.split('\n').filter(line => line.trim() !== '');
+                    stats.additions = lines.length;
+
+                    content = `### ${filename} (Added ✨)\n\n`;
+                    if (lines.length > 0) {
+                        content += `\`\`\`javascript\n`;
+                        const previewLines = lines.slice(0, 10);
+                        content += previewLines.join('\n');
+                        if (lines.length > 10) {
+                            content += '\n// ...\n';
+                        }
+                        content += '```\n\n';
+                    } else {
+                        content += `Empty file created\n\n`;
+                    }
+
+                    await this.fileCache.updateCache(change.uri);
+                    break;
+                }
+
+                case 'deleted': {
+                    const cachedContent = this.fileCache.getCachedContent(change.uri) || '';
+                    const lines = cachedContent.split('\n').filter(line => line.trim() !== '');
+                    stats.deletions = lines.length;
+
+                    content = `### ${filename} (Deleted ❌)\n`;
+                    content += `- File contained ${lines.length} lines of code\n`;
+                    content += `- Last modified: ${this.formatDate(new Date())}\n\n`;
+                    break;
+                }
+
+                case 'changed': {
+                    const oldContent = this.fileCache.getCachedContent(change.uri) || '';
+                    const newContent = await this.getFileContent(change.uri);
+                    const { additions, deletions, diffLines } = await this.calculateDiff(oldContent, newContent);
+
+                    stats.additions = additions;
+                    stats.deletions = deletions;
+
+                    content = `### ${filename} (Modified)\n`;
+                    content += `${additions} additions, ${deletions} deletions\n\n`;
+
+
+
+
+                    content += '`\`\`diff\n';
+                    const previewLines = diffLines.slice(0, 10);
+                    content += previewLines.join('\n');
+                    if (diffLines.length > 10) {
+                        content += '// ...\n';
+                    }
+                    content += '```\n\n';
+
+
+                    await this.fileCache.updateCache(change.uri);
+                    break;
+                }
+            }
+
+            return { content, stats };
+        } catch (error) {
+            this.outputChannel.appendLine(`Error processing ${filename}: ${error}`);
+            return {
+                content: `### ${filename} (Error processing changes)\n\n`,
+                stats: { additions: 0, deletions: 0 }
+            };
+        }
+    }
+
+    async generateReadme(changes: Change[]): Promise<string> {
+        await this.productivityTracker.trackChanges(changes);
+        const timestamp = new Date();
+        const workspaceName = vscode.workspace.workspaceFolders?.[0]?.name || 'Project';
+
+        let content = `# 🎮 ${workspaceName} Change Log\n\n`;
+        content += this.generateBadges(workspaceName.toLowerCase(), timestamp);
+        content += this.productivityTracker.getProductivityMetrics();
+        content += '\n\n## 📊 Change Summary\n\n';
+
+        const addedFiles = changes.filter(c => c.type === 'added').length;
+        const modifiedFiles = changes.filter(c => c.type === 'changed').length;
+        const deletedFiles = changes.filter(c => c.type === 'deleted').length;
+
+        content += `| Metric | Count |\n|--------|--------|\n`;
+        content += `| 📝 Files Modified | ${modifiedFiles} |\n`;
+        content += `| ➕ Files Added | ${addedFiles} |\n`;
+        content += `| 🗑️ Files Deleted | ${deletedFiles} |\n`;
+
+        content += '\n## 🔍 Detailed Changes\n\n';
+
+        let totalAdditions = 0;
+        let totalDeletions = 0;
+
+        // Process all changes
+        for (const change of changes) {
+            const { content: fileContent, stats } = await this.getDetailedFileChanges(change);
+            content += fileContent;
+            totalAdditions += stats.additions;
+            totalDeletions += stats.deletions;
+        }
+
+        // Add Visual Representation
+        content += '\n## 📈 Visual Representation\n\n';
+        content += this.generateMermaidChart(addedFiles, modifiedFiles, deletedFiles);
+
+        // Add Changes Overview
+        content += '\n\n## 📊 Changes Overview\n```\n';
+        content += `📈 Additions:    ${this.generateProgressBar(totalAdditions, totalAdditions + totalDeletions)} +${totalAdditions}\n`;
+        content += `📉 Deletions:    ${this.generateProgressBar(totalDeletions, totalAdditions + totalDeletions)} -${totalDeletions}\n`;
+        content += '```\n';
+
+        // Technical Details
+        content += '\n## 🛠️ Technical Details\n';
+        content += `- **Project**: ${workspaceName}\n`;
+        content += `- **Timestamp**: ${this.formatDate(timestamp)}\n`;
+        content += `- **Type**: ${this.determineChangeType(totalAdditions, totalDeletions)}\n`;
+        content += `- **Impact**: ${this.determineImpact(totalAdditions + totalDeletions)}\n`;
+
+        // Footer
+        content += '\n---\n\n';
+        content += '<details>\n<summary>📝 Note</summary>\n';
+        content += 'This changelog was automatically generated by DevTrack. For more detailed information, please check the commit history.\n';
+        content += '</details>\n\n---\n\n';
+        content += `*Generated on ${this.formatDate(timestamp)}*\n\n`;
+        content += '[![Made with DevTrack](https://img.shields.io/badge/Made%20with-DevTrack-purple.svg)](https://github.com/your/devtrack)\n';
+
+        this.productivityTracker.reset();
+        return content;
+    }
+
+    private determineChangeType(additions: number, deletions: number): string {
+        if (additions > deletions * 2) return 'Feature Addition';
+        if (deletions > additions * 2) return 'Code Cleanup';
+        return 'Feature Update';
+    }
+
+    private determineImpact(totalChanges: number): string {
+        if (totalChanges > 500) return 'High';
+        if (totalChanges > 100) return 'Medium';
+        return 'Low';
+    }
 }
