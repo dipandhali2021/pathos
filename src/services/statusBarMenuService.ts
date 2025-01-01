@@ -7,7 +7,7 @@ import { Scheduler } from './scheduler';
 import { WorkspaceInitializationService } from './workspaceInitializationService';
 import { SettingsService } from './settingsService';
 
-interface DevTrackServices {
+interface PathosServices {
     outputChannel: vscode.OutputChannel;
     githubService: GitHubService;
     gitService: GitService;
@@ -23,23 +23,23 @@ interface DevTrackServices {
 
 export class StatusBarMenuService {
   private statusBarItem: vscode.StatusBarItem;
-  private services: DevTrackServices;
+  private services: PathosServices;
 
-  constructor(services: DevTrackServices) {
+  constructor(services: PathosServices) {
     this.services = services;
     this.statusBarItem = vscode.window.createStatusBarItem(
       vscode.StatusBarAlignment.Right,
       1000
     );
-    this.statusBarItem.name = 'DevTrack Menu';
-    this.statusBarItem.command = 'devtrack.showMenu';
+    this.statusBarItem.name = 'Pathos Menu';
+    this.statusBarItem.command = 'pathos.showMenu';
     this.updateStatusBarItem();
     this.statusBarItem.show();
   }
 
   private updateStatusBarItem() {
-    this.statusBarItem.text = '$(git-commit) DevTrack';
-    this.statusBarItem.tooltip = 'Click to show DevTrack commands';
+    this.statusBarItem.text = '$(git-commit) Pathos';
+    this.statusBarItem.tooltip = 'Click to show Pathos commands';
   }
 
   private getStatusItems(): vscode.QuickPickItem[] {
@@ -49,7 +49,7 @@ export class StatusBarMenuService {
         isTracking = true;
     }
     const isAuthenticated = this.services.githubService.isAuthenticated();
-    const config = vscode.workspace.getConfiguration('devtrack');
+    const config = vscode.workspace.getConfiguration('pathos');
     const aiEnabled = config.get<boolean>('enableAiInsights', true);
     const hasAiKey = Boolean(config.get('aiApiKey'));
 
@@ -84,7 +84,7 @@ export class StatusBarMenuService {
   }
 
   private async configureAiApiKey() {
-    const config = vscode.workspace.getConfiguration('devtrack');
+    const config = vscode.workspace.getConfiguration('pathos');
     const currentKey = config.get('aiApiKey', '');
 
     const newKey = await vscode.window.showInputBox({
@@ -100,24 +100,24 @@ export class StatusBarMenuService {
 
     if (newKey !== undefined) {
       await config.update('aiApiKey', newKey, true);
-      this.services.outputChannel.appendLine('DevTrack: AI API Key updated');
-      vscode.window.showInformationMessage('DevTrack: AI API Key has been updated');
+      this.services.outputChannel.appendLine('Pathos: AI API Key updated');
+      vscode.window.showInformationMessage('Pathos: AI API Key has been updated');
     }
   }
 
   private async toggleAiInsights() {
-    const config = vscode.workspace.getConfiguration('devtrack');
+    const config = vscode.workspace.getConfiguration('pathos');
     const currentValue = config.get<boolean>('enableAiInsights', true);
     await config.update('enableAiInsights', !currentValue, true);
     
     const status = !currentValue ? 'enabled' : 'disabled';
-    this.services.outputChannel.appendLine(`DevTrack: AI insights ${status}`);
-    vscode.window.showInformationMessage(`DevTrack: AI insights have been ${status}`);
+    this.services.outputChannel.appendLine(`Pathos: AI insights ${status}`);
+    vscode.window.showInformationMessage(`Pathos: AI insights have been ${status}`);
   }
 
   async showMenu() {
     const statusItems = this.getStatusItems();
-    const config = vscode.workspace.getConfiguration('devtrack');
+    const config = vscode.workspace.getConfiguration('pathos');
     const aiEnabled = config.get<boolean>('enableAiInsights', true);
     
     const commandItems: vscode.QuickPickItem[] = [
@@ -135,14 +135,14 @@ export class StatusBarMenuService {
         label: '$(clock) Update Commit Frequency',
         description: 'Change how often changes are committed',
         detail: 'Current frequency: ' + 
-          (vscode.workspace.getConfiguration('devtrack').get('commitFrequency') || 1) + 
+          (vscode.workspace.getConfiguration('pathos').get('commitFrequency') || 1) + 
           ' minutes',
       },
       {
         label: '$(check) Toggle Commit Confirmation',
         description: 'Enable/disable commit confirmation dialog',
         detail: 'Current: ' + 
-          (vscode.workspace.getConfiguration('devtrack').get('confirmBeforeCommit') 
+          (vscode.workspace.getConfiguration('pathos').get('confirmBeforeCommit') 
             ? 'Enabled' 
             : 'Disabled'),
       },
@@ -174,17 +174,17 @@ export class StatusBarMenuService {
     const allItems = [...statusItems, ...commandItems];
 
     const selected = await vscode.window.showQuickPick(allItems, {
-      placeHolder: 'Select a DevTrack action',
-      title: 'DevTrack Menu'
+      placeHolder: 'Select a Pathos action',
+      title: 'Pathos Menu'
     });
 
     if (selected) {
       switch (selected.label) {
         case '$(sync) Start Tracking':
-          vscode.commands.executeCommand('devtrack.startTracking');
+          vscode.commands.executeCommand('pathos.startTracking');
           break;
         case '$(stop) Stop Tracking':
-          vscode.commands.executeCommand('devtrack.stopTracking');
+          vscode.commands.executeCommand('pathos.stopTracking');
           break;
         case '$(clock) Update Commit Frequency':
           await this.services.settingsService.updateCommitFrequency();
@@ -193,7 +193,7 @@ export class StatusBarMenuService {
           await this.services.settingsService.toggleConfirmBeforeCommit();
           break;
         case '$(github) Update Repository Visibility':
-          vscode.commands.executeCommand('devtrack.updateRepoVisibility');
+          vscode.commands.executeCommand('pathos.updateRepoVisibility');
           break;
         case '$(settings-gear) Configure AI API Key':
           await this.configureAiApiKey();
@@ -203,10 +203,10 @@ export class StatusBarMenuService {
           await this.toggleAiInsights();
           break;
         case '$(sign-in) Login to GitHub':
-          vscode.commands.executeCommand('devtrack.login');
+          vscode.commands.executeCommand('pathos.login');
           break;
         case '$(sign-out) Logout from GitHub':
-          vscode.commands.executeCommand('devtrack.logout');
+          vscode.commands.executeCommand('pathos.logout');
           break;
       }
     }

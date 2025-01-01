@@ -1,12 +1,12 @@
 {
-  "name": "devtrack",
-  "displayName": "DevTrack",
-  "description": "Track your coding journey effortlessly with DevTrack",
-  "version": "4.1.12",
-  "publisher": "TeannaCole",
+  "name": "pathos",
+  "displayName": "Pathos",
+  "description": "Track your coding journey with Pathos – your ultimate dev companion!",
+  "version": "1.0.0",
+  "publisher": "DipanDhali",
   "repository": {
     "type": "GitHub",
-    "url": "https://github.com/Teamial/DevTrack/tree/master"
+    "url": "https://github.com/dipandhali2021/code-track"
   },
   "license": "MIT",
   "type": "commonjs",
@@ -14,81 +14,82 @@
     "vscode": "^1.93.0"
   },
   "categories": [
+    "Extension Packs",
     "Other"
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onCommand:devtrack.login",
-    "onCommand:devtrack.startTracking",
-    "onCommand:devtrack.stopTracking",
-    "onCommand:devtrack.logout",
-    "onCommand:devtrack.updateRepoVisibility"
+    "onCommand:pathos.login",
+    "onCommand:pathos.startTracking",
+    "onCommand:pathos.stopTracking",
+    "onCommand:pathos.logout",
+    "onCommand:pathos.updateRepoVisibility"
   ],
   "main": "./dist/extension.js",
-  "icon": "studio-128x128.png",
+  "icon": "logo-128x128.png",
   "contributes": {
     "commands": [
       {
-        "command": "devtrack.startTracking",
-        "title": "DevTrack: Start Tracking"
+        "command": "pathos.startTracking",
+        "title": "Pathos: Start Tracking"
       },
       {
-        "command": "devtrack.stopTracking",
-        "title": "DevTrack: Stop Tracking"
+        "command": "pathos.stopTracking",
+        "title": "Pathos: Stop Tracking"
       },
       {
-        "command": "devtrack.login",
-        "title": "DevTrack: Login to GitHub"
+        "command": "pathos.login",
+        "title": "Pathos: Login to GitHub"
       },
       {
-        "command": "devtrack.logout",
-        "title": "DevTrack: Logout from GitHub"
+        "command": "pathos.logout",
+        "title": "Pathos: Logout from GitHub"
       },
       {
-        "command": "devtrack.showGitGuide",
-        "title": "DevTrack: Show Git Installation Guide"
+        "command": "pathos.showGitGuide",
+        "title": "Pathos: Show Git Installation Guide"
       },
       {
-        "command": "devtrack.test",
-        "title": "DevTrack: Test Extension Loading"
+        "command": "pathos.test",
+        "title": "Pathos: Test Extension Loading"
       },
       {
-        "command": "devtrack.updateRepoVisibility",
-        "title": "DevTrack: Update Repository Visibility",
-        "category": "DevTrack"
+        "command": "pathos.updateRepoVisibility",
+        "title": "Pathos: Update Repository Visibility",
+        "category": "Pathos"
       },
       {
-        "command": "devtrack.updateCommitFrequency",
-        "title": "DevTrack: Update Commit Frequency",
-        "category": "DevTrack"
+        "command": "pathos.updateCommitFrequency",
+        "title": "Pathos: Update Commit Frequency",
+        "category": "Pathos"
       },
       {
-        "command": "devtrack.toggleConfirmBeforeCommit",
-        "title": "DevTrack: Toggle Commit Confirmation",
-        "category": "DevTrack"
+        "command": "pathos.toggleConfirmBeforeCommit",
+        "title": "Pathos: Toggle Commit Confirmation",
+        "category": "Pathos"
       }
       
     ],
     "configuration": {
       "type": "object",
-      "title": "DevTrack Configuration",
+      "title": "Pathos Configuration",
       "properties": {
-        "devtrack.repoName": {
+        "pathos.repoName": {
           "type": "string",
           "default": "code-tracking",
           "description": "Name of the GitHub repository to store tracking logs."
         },
-        "devtrack.commitFrequency": {
+        "pathos.commitFrequency": {
           "type": "number",
           "default": 1,
           "description": "How often (in minutes) to commit your coding history."
         },
-        "devtrack.confirmBeforeCommit": {
+        "pathos.confirmBeforeCommit": {
           "type": "boolean",
           "default": true,
           "description": "Show a confirmation dialog before each automatic commit."
         },
-        "devtrack.exclude": {
+        "pathos.exclude": {
           "type": "array",
           "items": {
             "type": "string"
@@ -96,12 +97,12 @@
           "default": [],
           "description": "List of glob patterns to exclude from tracking."
         },
-        "devtrack.aiApiKey": {
+        "pathos.aiApiKey": {
           "type": "string",
           "default": "",
           "description": "Google AI API Key for AI insights"
         },
-        "devtrack.enableAiInsights": {
+        "pathos.enableAiInsights": {
           "type": "boolean",
           "default": true,
           "description": "Enable or disable AI insights in generated reports"

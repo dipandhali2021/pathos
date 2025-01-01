@@ -40,8 +40,8 @@ export class ProjectManager {
     }
 
     const projectId = this.getProjectIdentifier();
-    const devtrackPath = path.join(workspace.uri.fsPath, '.devtrack');
-    const projectPath = path.join(devtrackPath, 'projects', projectId);
+    const pathosPath = path.join(workspace.uri.fsPath, '.pathos');
+    const projectPath = path.join(pathosPath, 'projects', projectId);
 
     // Create project directory structure
     const dirs = ['logs', 'cache'];

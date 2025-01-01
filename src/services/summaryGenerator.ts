@@ -177,7 +177,7 @@ export class SummaryGenerator {
         {} as Record<string, number>
       );
 
-      let summary = 'DevTrack: Changes detected\n\n';
+      let summary = 'Pathos: Changes detected\n\n';
 
       // Add productivity metrics
       summary += this.productivityTracker.getProductivityMetrics();
@@ -196,7 +196,7 @@ export class SummaryGenerator {
       return detail;
     } catch (error) {
       this.outputChannel.appendLine(`Summary generation error: ${error}`);
-      return ['DevTrack: Error generating change summary'];
+      return ['Pathos: Error generating change summary'];
     }
   }
 }

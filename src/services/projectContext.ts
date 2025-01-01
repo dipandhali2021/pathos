@@ -48,10 +48,10 @@ export class ProjectContext {
     try {
       await this.loadGitHistory();
       await this.updateProjectStats();
-      this.outputChannel.appendLine('DevTrack: Loaded project context');
+      this.outputChannel.appendLine('Pathos: Loaded project context');
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error loading context: ${error}`
+        `Pathos: Error loading context: ${error}`
       );
     }
   }
@@ -78,7 +78,7 @@ export class ProjectContext {
       }
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error loading git history: ${error}`
+        `Pathos: Error loading git history: ${error}`
       );
     }
   }
@@ -148,7 +148,7 @@ export class ProjectContext {
       await this.loadGitHistory(); // Refresh Git history
       await this.updateProjectStats();
     } catch (error) {
-      this.outputChannel.appendLine(`DevTrack: Error adding commit: ${error}`);
+      this.outputChannel.appendLine(`Pathos: Error adding commit: ${error}`);
     }
   }
 
@@ -183,7 +183,7 @@ export class ProjectContext {
         }
       } catch (error) {
         this.outputChannel.appendLine(
-          `DevTrack: Error getting git branch: ${error}`
+          `Pathos: Error getting git branch: ${error}`
         );
       }
 
@@ -197,7 +197,7 @@ export class ProjectContext {
       };
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error updating project stats: ${error}`
+        `Pathos: Error updating project stats: ${error}`
       );
     }
   }
@@ -221,7 +221,7 @@ export class ProjectContext {
       }
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error generating context summary: ${error}`
+        `Pathos: Error generating context summary: ${error}`
       );
     }
 

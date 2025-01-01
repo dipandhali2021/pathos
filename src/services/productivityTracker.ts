@@ -108,7 +108,7 @@ export class ProductivityTracker {
     }
 
     this.outputChannel.appendLine(
-      `DevTrack: Total changes - Added: ${this.totalLinesAdded}, Deleted: ${this.totalLinesDeleted}`
+      `Pathos: Total changes - Added: ${this.totalLinesAdded}, Deleted: ${this.totalLinesDeleted}`
     );
   }
 

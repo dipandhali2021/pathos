@@ -53,7 +53,7 @@ export class GitService extends EventEmitter {
     if (this.listenerCount('error') === 0) {
       this.on('error', (error: Error) => {
         this.outputChannel.appendLine(
-          `DevTrack: Unhandled Git error - ${error.message}`
+          `Pathos: Unhandled Git error - ${error.message}`
         );
       });
     }
@@ -70,7 +70,7 @@ export class GitService extends EventEmitter {
         'core.safecrlf=false'
       ]
     });
-    this.outputChannel.appendLine(`DevTrack: Git initialized in ${trackingFolder}`);
+    this.outputChannel.appendLine(`Pathos: Git initialized in ${trackingFolder}`);
   }
 
   private ensureGitInitialized(trackingFolder: string): void {
@@ -89,7 +89,7 @@ export class GitService extends EventEmitter {
       this.listenerCount('error') >= GitService.MAX_LISTENERS - 1
     ) {
       this.outputChannel.appendLine(
-        'DevTrack: Warning - Too many error listeners'
+        'Pathos: Warning - Too many error listeners'
       );
       return this;
     }
@@ -141,14 +141,14 @@ export class GitService extends EventEmitter {
       if (this.listenerCount(event) === 0 && event !== 'error') {
         // If no listeners for non-error events, log it
         this.outputChannel.appendLine(
-          `DevTrack: No listeners for event - ${String(event)}`
+          `Pathos: No listeners for event - ${String(event)}`
         );
         return false;
       }
       return super.emit(event, ...args);
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error emitting event ${String(event)} - ${error}`
+        `Pathos: Error emitting event ${String(event)} - ${error}`
       );
       this.emit('error', new Error(`Event emission failed: ${error}`));
       return false;
@@ -162,7 +162,7 @@ export class GitService extends EventEmitter {
         throw new Error('No workspace folder found');
       }
 
-      this.trackingFolder = path.join(workspaceRoot, '.devtrack');
+      this.trackingFolder = path.join(workspaceRoot, '.pathos');
 
       // Initialize git in tracking folder
       this.git = simpleGit({
@@ -174,9 +174,9 @@ export class GitService extends EventEmitter {
       });
 
       await this.git.init();
-      this.outputChannel.appendLine('DevTrack: Git initialized in tracking folder');
+      this.outputChannel.appendLine('Pathos: Git initialized in tracking folder');
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Workspace initialization error - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Workspace initialization error - ${error.message}`);
       throw error;
     }
   }
@@ -193,7 +193,7 @@ export class GitService extends EventEmitter {
           const gitExePath = path.join(basePath, 'git.exe').replace(/\\/g, '/');
           if (fs.existsSync(gitExePath)) {
             this.outputChannel.appendLine(
-              `DevTrack: Found Git in PATH at ${gitExePath}`
+              `Pathos: Found Git in PATH at ${gitExePath}`
             );
             return gitExePath;
           }
@@ -207,7 +207,7 @@ export class GitService extends EventEmitter {
 
         for (const gitPath of commonPaths) {
           if (fs.existsSync(gitPath)) {
-            this.outputChannel.appendLine(`DevTrack: Found Git at ${gitPath}`);
+            this.outputChannel.appendLine(`Pathos: Found Git at ${gitPath}`);
             return gitPath;
           }
         }
@@ -220,12 +220,12 @@ export class GitService extends EventEmitter {
             .replace(/\\/g, '/');
           if (gitPathFromWhere && fs.existsSync(gitPathFromWhere)) {
             this.outputChannel.appendLine(
-              `DevTrack: Found Git using 'where' command at ${gitPathFromWhere}`
+              `Pathos: Found Git using 'where' command at ${gitPathFromWhere}`
             );
             return gitPathFromWhere;
           }
         } catch (error) {
-          this.outputChannel.appendLine('DevTrack: Git not found in PATH');
+          this.outputChannel.appendLine('Pathos: Git not found in PATH');
         }
 
         // Final fallback
@@ -240,7 +240,7 @@ export class GitService extends EventEmitter {
       }
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error finding Git executable - ${error}`
+        `Pathos: Error finding Git executable - ${error}`
       );
       return 'git';
     }
@@ -259,14 +259,14 @@ export class GitService extends EventEmitter {
             fs.unlinkSync(lockPath);
           } catch (error) {
             this.outputChannel.appendLine(
-              `DevTrack: Could not remove lock file ${lockPath}: ${error}`
+              `Pathos: Could not remove lock file ${lockPath}: ${error}`
             );
           }
         }
       }
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error cleaning up Git locks: ${error}`
+        `Pathos: Error cleaning up Git locks: ${error}`
       );
     }
   }
@@ -287,7 +287,7 @@ export class GitService extends EventEmitter {
       }
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error initializing Git config: ${error}`
+        `Pathos: Error initializing Git config: ${error}`
       );
       throw error;
     }
@@ -308,7 +308,7 @@ export class GitService extends EventEmitter {
           : normalizedGitPath;
         execSync(`${versionCmd} --version`, { encoding: 'utf8' });
         this.outputChannel.appendLine(
-          `DevTrack: Successfully verified Git at: ${normalizedGitPath}`
+          `Pathos: Successfully verified Git at: ${normalizedGitPath}`
         );
       } catch (error: any) {
         throw new Error(`Git executable validation failed: ${error.message}`);
@@ -334,7 +334,7 @@ export class GitService extends EventEmitter {
 
       // Verify basic Git configuration
       await testGit.raw(['config', '--list']);
-      this.outputChannel.appendLine('DevTrack: Git configuration verified');
+      this.outputChannel.appendLine('Pathos: Git configuration verified');
 
 
       // Check repository state
@@ -342,7 +342,7 @@ export class GitService extends EventEmitter {
       if (isRepo) {
         const remotes = await testGit.getRemotes(true);
         if (remotes.length === 0) {
-          this.outputChannel.appendLine('DevTrack: No remote configured');
+          this.outputChannel.appendLine('Pathos: No remote configured');
         }
       }
 
@@ -353,26 +353,26 @@ export class GitService extends EventEmitter {
         try {
           await testGit.raw(['config', '--system', '--list']);
           this.outputChannel.appendLine(
-            'DevTrack: Windows Git system configuration verified'
+            'Pathos: Windows Git system configuration verified'
           );
 
         } catch (error) {
           // Don't throw on system config access issues
           this.outputChannel.appendLine(
-            'DevTrack: System Git config check skipped (normal on some Windows setups)'
+            'Pathos: System Git config check skipped (normal on some Windows setups)'
           );
         }
       }
     } catch (error: any) {
       this.outputChannel.appendLine(
-        `DevTrack: Git config verification failed - ${error.message}`
+        `Pathos: Git config verification failed - ${error.message}`
       );
       throw new Error(`Git configuration error: ${error.message}`);
     }
   }
   catch(error: any) {
     this.outputChannel.appendLine(
-      `DevTrack: Git config verification failed - ${error.message}`
+      `Pathos: Git config verification failed - ${error.message}`
     );
     throw new Error(`Git configuration error: ${error.message}`);
   }
@@ -386,7 +386,7 @@ export class GitService extends EventEmitter {
       } catch (error: any) {
         lastError = error;
         this.outputChannel.appendLine(
-          `DevTrack: Operation failed (attempt ${attempt}/${GitService.MAX_RETRIES}): ${error.message}`
+          `Pathos: Operation failed (attempt ${attempt}/${GitService.MAX_RETRIES}): ${error.message}`
         );
 
         if (attempt < GitService.MAX_RETRIES) {
@@ -410,7 +410,7 @@ export class GitService extends EventEmitter {
       return files.length > 0;
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error checking project files - ${error}`
+        `Pathos: Error checking project files - ${error}`
       );
       return false;
     }
@@ -418,7 +418,7 @@ export class GitService extends EventEmitter {
 
   private async backupProjectFiles(): Promise<void> {
     try {
-      const backupDir = path.join(this.repoPath, '.devtrack-backup');
+      const backupDir = path.join(this.repoPath, '.pathos-backup');
       if (!fs.existsSync(backupDir)) {
         fs.mkdirSync(backupDir);
       }
@@ -448,11 +448,11 @@ export class GitService extends EventEmitter {
       }
 
       this.outputChannel.appendLine(
-        `DevTrack: Created backup at ${backupPath}`
+        `Pathos: Created backup at ${backupPath}`
       );
     } catch (error) {
       this.outputChannel.appendLine(
-        `DevTrack: Error creating backup - ${error}`
+        `Pathos: Error creating backup - ${error}`
       );
       throw error;
     }
@@ -476,9 +476,9 @@ export class GitService extends EventEmitter {
     try {
       await this.git.addConfig('user.name', username, true, 'global');
       await this.git.addConfig('user.email', email, true, 'global');
-      this.outputChannel.appendLine('DevTrack: Global Git configuration updated successfully');
+      this.outputChannel.appendLine('Pathos: Global Git configuration updated successfully');
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Error setting global Git config - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Error setting global Git config - ${error.message}`);
       throw error;
     }
   }
@@ -491,7 +491,7 @@ export class GitService extends EventEmitter {
         throw new Error('No workspace folder found');
       }
 
-      const trackingFolder = path.join(workspaceRoot, '.devtrack');
+      const trackingFolder = path.join(workspaceRoot, '.pathos');
 
       // // Create tracking folder if it doesn't exist
       // fs.mkdirSync(trackingFolder, { recursive: true });
@@ -556,10 +556,10 @@ export class GitService extends EventEmitter {
 
       //TODO: intial push
 
-      this.outputChannel.appendLine('DevTrack: Repository initialized successfully');
+      this.outputChannel.appendLine('Pathos: Repository initialized successfully');
 
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Initialization failed - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Initialization failed - ${error.message}`);
       throw error;
     }
   }
@@ -585,14 +585,14 @@ node_modules/
 
 
       try {
-        await this.git.commit('Initialize DevTrack directory structure');
+        await this.git.commit('Initialize Pathos directory structure');
       } catch (error) {
         // Ignore if nothing to commit
       }
 
-      this.outputChannel.appendLine('DevTrack: Directory structure initialized');
+      this.outputChannel.appendLine('Pathos: Directory structure initialized');
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Directory structure error - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Directory structure error - ${error.message}`);
       throw error;
     }
   }
@@ -614,7 +614,7 @@ node_modules/
       }
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const readmeFile = path.join(projectLogFolder, `README-${timestamp}.md`);
+      const readmeFile = path.join(projectLogFolder, `${timestamp}.md`);
 
       const logsDir = path.dirname(readmeFile);
       if (!fs.existsSync(logsDir)) {
@@ -643,11 +643,11 @@ node_modules/
       }
 
       this.outputChannel.appendLine(
-        `DevTrack: Changes committed and pushed successfully for project: ${this.projectManager.getProjectIdentifier()}`
+        `Pathos: Changes committed and pushed successfully for project: ${this.projectManager.getProjectIdentifier()}`
       );
     } catch (error: any) {
       this.outputChannel.appendLine(
-        `DevTrack: Error in commit and push - ${error.message}`
+        `Pathos: Error in commit and push - ${error.message}`
       );
       throw error;
     }
@@ -657,9 +657,9 @@ node_modules/
     try {
       await this.git.removeRemote('origin').catch(() => { });
       await this.git.addRemote('origin', remoteUrl);
-      this.outputChannel.appendLine('DevTrack: Remote URL set successfully');
+      this.outputChannel.appendLine('Pathos: Remote URL set successfully');
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Error setting remote - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Error setting remote - ${error.message}`);
       throw error;
     }
   }
@@ -676,12 +676,12 @@ node_modules/
 
       // Reinitialize git
       this.execGitCommand('git init', trackingFolder);
-      this.execGitCommand('git config user.name "DevTrack"', trackingFolder);
-      this.execGitCommand('git config user.email "devtrack@stackblitz.com"', trackingFolder);
+      this.execGitCommand('git config user.name "Pathos"', trackingFolder);
+      this.execGitCommand('git config user.email "pathos@stackblitz.com"', trackingFolder);
 
-      this.outputChannel.appendLine('DevTrack: Git reinitialized in tracking folder');
+      this.outputChannel.appendLine('Pathos: Git reinitialized in tracking folder');
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Error reinitializing git - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Error reinitializing git - ${error.message}`);
       throw error;
     }
   }
@@ -691,7 +691,7 @@ node_modules/
     try {
       return execSync(command, { cwd, encoding: 'utf8' });
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Git command error - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Git command error - ${error.message}`);
       throw error;
     }
   }
@@ -715,16 +715,16 @@ node_modules/
     }
 
     this.outputChannel.appendLine(
-      `DevTrack: ${errorMessage} - ${error.message}`
+      `Pathos: ${errorMessage} - ${error.message}`
     );
-    vscode.window.showErrorMessage(`DevTrack: ${errorMessage}`);
+    vscode.window.showErrorMessage(`Pathos: ${errorMessage}`);
   }
 
   private enqueueOperation<T>(operation: () => Promise<T>): Promise<T> {
     this.operationQueue = this.operationQueue
       .then(() => operation())
       .catch((error) => {
-        this.outputChannel.appendLine(`DevTrack: Operation failed: ${error}`);
+        this.outputChannel.appendLine(`Pathos: Operation failed: ${error}`);
         throw error;
       });
     return this.operationQueue;
@@ -744,7 +744,7 @@ node_modules/
       // Cleanup any ongoing git operations
       this.operationQueue = Promise.resolve();
     }
-    this.outputChannel.appendLine('DevTrack: GitService disposed');
+    this.outputChannel.appendLine('Pathos: GitService disposed');
   }
 }
 

@@ -1,8 +1,30 @@
-out
-dist
-node_modules
-.vscode-test/
+# Node.js dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# VS Code settings
+.vscode/
+
+# VSIX packages (Visual Studio extensions)
 *.vsix
+
+# Log files
 *.log
+
+# Environment files
 .env
-node_modules
+
+# Optional npm cache directory
+.npm/
+
+# Yarn lock file (if using Yarn)
+yarn.lock
+
+# TypeScript build directory (if using TypeScript)
+build/
+
+# Debugger directory
+.vscode-test/

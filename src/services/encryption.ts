@@ -10,7 +10,7 @@ export class EncryptionService {
   constructor() {
     // Generate a deterministic key based on the machine ID to ensure consistent decryption
     const machineId = this.getMachineId();
-    this.key = crypto.pbkdf2Sync(machineId, 'devtrack-salt', 100000, this.keyLength, 'sha256');
+    this.key = crypto.pbkdf2Sync(machineId, 'pathos-salt', 100000, this.keyLength, 'sha256');
   }
 
   private getMachineId(): string {

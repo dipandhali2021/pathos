@@ -27,15 +27,15 @@ export class Tracker extends EventEmitter {
     if (!workspaceRoot) {
       throw new Error('No workspace folder found');
     }
-    this.persistPath = path.join(workspaceRoot, '.devtrack', 'tracker-state.json');
+    this.persistPath = path.join(workspaceRoot, '.pathos', 'tracker-state.json');
     
     this.loadPersistedState();
     this.initializeWatcher();
   }
 
   private shouldTrackFile(filePath: string): boolean {
-    // Always exclude .devtrack folder and its contents
-    if (filePath.includes('.devtrack')) {
+    // Always exclude .pathos folder and its contents
+    if (filePath.includes('.pathos')) {
       return false;
     }
 
@@ -62,7 +62,7 @@ export class Tracker extends EventEmitter {
       if (fs.existsSync(this.persistPath)) {
         const data = JSON.parse(fs.readFileSync(this.persistPath, 'utf8'));
         
-        // Filter out .devtrack files from existing state
+        // Filter out .pathos files from existing state
         const filteredState = new Map();
         Object.entries(data.lastKnownState).forEach(([filePath, state]) => {
           if (this.shouldTrackFile(filePath)) {
@@ -71,10 +71,10 @@ export class Tracker extends EventEmitter {
         });
         
         this.lastKnownState = filteredState;
-        this.outputChannel.appendLine('DevTrack: Loaded and filtered persisted tracker state');
+        this.outputChannel.appendLine('Pathos: Loaded and filtered persisted tracker state');
       }
     } catch (error) {
-      this.outputChannel.appendLine(`DevTrack: Error loading persisted state: ${error}`);
+      this.outputChannel.appendLine(`Pathos: Error loading persisted state: ${error}`);
     }
   }
 
@@ -98,7 +98,7 @@ export class Tracker extends EventEmitter {
       };
       fs.writeFileSync(this.persistPath, JSON.stringify(data, null, 2));
     } catch (error) {
-      this.outputChannel.appendLine(`DevTrack: Error persisting state: ${error}`);
+      this.outputChannel.appendLine(`Pathos: Error persisting state: ${error}`);
     }
   }
 
@@ -112,7 +112,7 @@ export class Tracker extends EventEmitter {
   }
 
   private initializeWatcher() {
-    const config = vscode.workspace.getConfiguration('devtrack');
+    const config = vscode.workspace.getConfiguration('pathos');
     this.excludePatterns = config.get<string[]>('exclude') || [];
 
     this.watcher = vscode.workspace.createFileSystemWatcher(
@@ -164,7 +164,7 @@ export class Tracker extends EventEmitter {
       this.persistState();
     });
 
-    this.outputChannel.appendLine('DevTrack: File system watcher initialized.');
+    this.outputChannel.appendLine('Pathos: File system watcher initialized.');
   }
 
   public handleChange(uri: vscode.Uri, type: 'added' | 'changed' | 'deleted'): void {

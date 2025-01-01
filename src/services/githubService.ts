@@ -25,7 +25,7 @@ export class GitHubService {
   async createRepo(
     repoName: string = GitHubService.DEFAULT_REPO_NAME,
     isPrivate: boolean = true,
-    description: string = 'DevTrack Code Tracking Repository'
+    description: string = 'Pathos Code Tracking Repository'
   ): Promise<string | null> {
     try {
       const response = await this.octokit.repos.createForAuthenticatedUser({
@@ -41,7 +41,7 @@ export class GitHubService {
       return response.data.clone_url;
     } catch (error: any) {
       this.outputChannel.appendLine(`Error creating repository: ${error.message}`);
-      vscode.window.showErrorMessage(`DevTrack: Failed to create repository "${repoName}".`);
+      vscode.window.showErrorMessage(`Pathos: Failed to create repository "${repoName}".`);
       return null;
     }
   }
@@ -53,8 +53,8 @@ export class GitHubService {
         throw new Error('No workspace folder found');
       }
 
-      // Create .devtrack folder
-      const trackingFolder = path.join(workspaceRoot, '.devtrack');
+      // Create .pathos folder
+      const trackingFolder = path.join(workspaceRoot, '.pathos');
       if (!fs.existsSync(trackingFolder)) {
         fs.mkdirSync(trackingFolder);
         
@@ -67,15 +67,15 @@ export class GitHubService {
         // Create .gitignore in workspace root if it doesn't exist
         const workspaceGitignore = path.join(workspaceRoot, '.gitignore');
         if (!fs.existsSync(workspaceGitignore)) {
-          fs.writeFileSync(workspaceGitignore, '.devtrack/\n');
+          fs.writeFileSync(workspaceGitignore, '.pathos/\n');
         } else {
           const content = fs.readFileSync(workspaceGitignore, 'utf8');
-          if (!content.includes('.devtrack/')) {
-            fs.appendFileSync(workspaceGitignore, '\n.devtrack/\n');
+          if (!content.includes('.pathos/')) {
+            fs.appendFileSync(workspaceGitignore, '\n.pathos/\n');
           }
         }
 
-        // Initialize git in .devtrack folder
+        // Initialize git in .pathos folder
         const trackingGitignore = path.join(trackingFolder, '.gitignore');
         const trackingGitignoreContent = `
 # Project specific files
@@ -95,9 +95,9 @@ stats/*
         fs.writeFileSync(path.join(statsFolder, '.gitkeep'), '');
       }
 
-      this.outputChannel.appendLine('DevTrack: Tracking folder setup completed');
+      this.outputChannel.appendLine('Pathos: Tracking folder setup completed');
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Error setting up tracking folder - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Error setting up tracking folder - ${error.message}`);
       throw error;
     }
   }
@@ -107,7 +107,7 @@ stats/*
       const username = await this.getUsername();
       if (!username) {
         vscode.window.showErrorMessage(
-          'DevTrack: Unable to retrieve GitHub username.'
+          'Pathos: Unable to retrieve GitHub username.'
         );
         return false;
       }
@@ -121,7 +121,7 @@ stats/*
         return false;
       }
       vscode.window.showErrorMessage(
-        `DevTrack: Error checking repository "${repoName}".`
+        `Pathos: Error checking repository "${repoName}".`
       );
       return false;
     }
@@ -136,7 +136,7 @@ stats/*
         `Error fetching username: ${error.message}`
       );
       vscode.window.showErrorMessage(
-        'DevTrack: Unable to fetch GitHub username.'
+        'Pathos: Unable to fetch GitHub username.'
       );
       return null;
     }
@@ -152,7 +152,7 @@ stats/*
       }
 
       // Get repository name from config
-      const config = vscode.workspace.getConfiguration('devtrack');
+      const config = vscode.workspace.getConfiguration('pathos');
       const repoName = config.get<string>('repoName') || 'code-tracking';
 
       // Show visibility selection dialog
@@ -180,7 +180,7 @@ stats/*
 
       // Show success message
       this.outputChannel.appendLine(
-        `DevTrack: Updated repository "${repoName}" visibility to ${visibilityChoice.toLowerCase()}`
+        `Pathos: Updated repository "${repoName}" visibility to ${visibilityChoice.toLowerCase()}`
       );
       vscode.window.showInformationMessage(
         `Repository visibility updated to ${visibilityChoice.toLowerCase()}`
@@ -188,9 +188,9 @@ stats/*
 
     } catch (error: any) {
       this.outputChannel.appendLine(
-        `DevTrack: Error updating repository visibility - ${error.message}`
+        `Pathos: Error updating repository visibility - ${error.message}`
       );
-      vscode.window.showErrorMessage(`DevTrack: ${error.message}`);
+      vscode.window.showErrorMessage(`Pathos: ${error.message}`);
     }
   }
 }

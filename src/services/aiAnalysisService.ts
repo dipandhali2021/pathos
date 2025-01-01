@@ -63,7 +63,7 @@ export class AIAnalysisService {
 
     private async initializeAI() {
         try {
-            const config = vscode.workspace.getConfiguration('devtrack');
+            const config = vscode.workspace.getConfiguration('pathos');
             const apiKey = config.get<string>('aiApiKey');
 
             if (!apiKey) {
@@ -85,7 +85,7 @@ export class AIAnalysisService {
         });
 
         if (apiKey) {
-            const config = vscode.workspace.getConfiguration('devtrack');
+            const config = vscode.workspace.getConfiguration('pathos');
             await config.update('aiApiKey', apiKey, true);
             this.client = new GoogleGenerativeAI(apiKey);
         }

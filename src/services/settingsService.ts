@@ -6,7 +6,7 @@ export class SettingsService {
 
   async updateCommitFrequency(): Promise<void> {
     try {
-      const config = vscode.workspace.getConfiguration('devtrack');
+      const config = vscode.workspace.getConfiguration('pathos');
       const currentFrequency = config.get<number>('commitFrequency') || 1;
 
       const result = await vscode.window.showQuickPick(
@@ -43,33 +43,33 @@ export class SettingsService {
 
       await config.update('commitFrequency', newFrequency, true);
       this.outputChannel.appendLine(
-        `DevTrack: Commit frequency updated to ${newFrequency} minutes`
+        `Pathos: Commit frequency updated to ${newFrequency} minutes`
       );
       vscode.window.showInformationMessage(
-        `DevTrack: Commit frequency updated to ${newFrequency} minutes`
+        `Pathos: Commit frequency updated to ${newFrequency} minutes`
       );
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Settings update error - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Settings update error - ${error.message}`);
       throw error;
     }
   }
 
   async toggleConfirmBeforeCommit(): Promise<void> {
     try {
-      const config = vscode.workspace.getConfiguration('devtrack');
+      const config = vscode.workspace.getConfiguration('pathos');
       const currentValue = config.get<boolean>('confirmBeforeCommit') ?? true;
       
       await config.update('confirmBeforeCommit', !currentValue, true);
       
       const status = !currentValue ? 'enabled' : 'disabled';
       this.outputChannel.appendLine(
-        `DevTrack: Commit confirmation ${status}`
+        `Pathos: Commit confirmation ${status}`
       );
       vscode.window.showInformationMessage(
-        `DevTrack: Commit confirmation ${status}`
+        `Pathos: Commit confirmation ${status}`
       );
     } catch (error: any) {
-      this.outputChannel.appendLine(`DevTrack: Settings update error - ${error.message}`);
+      this.outputChannel.appendLine(`Pathos: Settings update error - ${error.message}`);
       throw error;
     }
   }

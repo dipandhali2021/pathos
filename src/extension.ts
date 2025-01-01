@@ -29,7 +29,7 @@ class GitInstallationHandler {
   ): Promise<boolean> {
     try {
       const gitVersion = execSync('git --version', { encoding: 'utf8' });
-      outputChannel.appendLine(`DevTrack: Git found - ${gitVersion.trim()}`);
+      outputChannel.appendLine(`Pathos: Git found - ${gitVersion.trim()}`);
       return true;
     } catch (error) {
       const platform = process.platform;
@@ -286,14 +286,14 @@ Fedora:
 
 function showWelcomeInfo(outputChannel: vscode.OutputChannel) {
   const message =
-    'Welcome to DevTrack! Would you like to set up automatic code tracking?';
+    'Welcome to Pathos! Would you like to set up automatic code tracking?';
   const welcomeMessage = `
-To get started with DevTrack, you'll need:
+To get started with Pathos, you'll need:
 1. A GitHub account
 2. An open workspace/folder
 3. Git installed on your system (Download from https://git-scm.com/downloads)
 
-DevTrack will:
+Pathos will:
 - Create a private GitHub repository to store your coding activity
 - Automatically track and commit your changes
 - Generate detailed summaries of your work
@@ -309,13 +309,13 @@ DevTrack will:
         .showInformationMessage(message, 'Get Started', 'Learn More', 'Later')
         .then((selection) => {
           if (selection === 'Get Started') {
-            vscode.commands.executeCommand('devtrack.login');
+            vscode.commands.executeCommand('pathos.login');
           } else if (selection === 'Learn More') {
             vscode.window
               .showInformationMessage(welcomeMessage, 'Set Up Now', 'Later')
               .then((choice) => {
                 if (choice === 'Set Up Now') {
-                  vscode.commands.executeCommand('devtrack.login');
+                  vscode.commands.executeCommand('pathos.login');
                 }
               });
           }
@@ -324,7 +324,7 @@ DevTrack will:
   );
 }
 
-async function recoverFromGitIssues(services: DevTrackServices): Promise<void> {
+async function recoverFromGitIssues(services: PathosServices): Promise<void> {
   try {
     // Clear existing Git state
     const workspaceRoot = vscode.workspace.workspaceFolders?.[0].uri.fsPath;
@@ -376,7 +376,7 @@ async function recoverFromGitIssues(services: DevTrackServices): Promise<void> {
       throw new Error('Failed to get GitHub username');
     }
 
-    const config = vscode.workspace.getConfiguration('devtrack');
+    const config = vscode.workspace.getConfiguration('pathos');
     const repoName = config.get<string>('repoName') || 'code-tracking';
     const remoteUrl = `https://github.com/${username}/${repoName}.git`;
 
@@ -388,9 +388,9 @@ async function recoverFromGitIssues(services: DevTrackServices): Promise<void> {
 
 // Extension activation handler
 export async function activate(context: vscode.ExtensionContext) {
-  let testCommand = vscode.commands.registerCommand('devtrack.test', () => {
+  let testCommand = vscode.commands.registerCommand('pathos.test', () => {
     vscode.window.showInformationMessage(
-      'DevTrack Debug Version: Test Command Executed'
+      'Pathos Debug Version: Test Command Executed'
     );
   });
   context.subscriptions.push(testCommand);
@@ -410,7 +410,7 @@ interface PersistedAuthState {
   lastWorkspace?: string;
 }
 // Interface for services
-interface DevTrackServices {
+interface PathosServices {
   outputChannel: vscode.OutputChannel;
   githubService: GitHubService;
   gitService: GitService;
@@ -427,7 +427,7 @@ interface DevTrackServices {
 
 async function restoreAuthenticationState(
   context: vscode.ExtensionContext,
-  services: DevTrackServices
+  services: PathosServices
 ): Promise<boolean> {
   try {
     // First check if we have a session ID stored
@@ -451,9 +451,9 @@ async function restoreAuthenticationState(
       const username = await services.githubService.getUsername();
 
       if (username) {
-        const persistedState = context.globalState.get<PersistedAuthState>('devtrackAuthState');
+        const persistedState = context.globalState.get<PersistedAuthState>('pathosAuthState');
         const currentWorkspace = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        const config = vscode.workspace.getConfiguration('devtrack');
+        const config = vscode.workspace.getConfiguration('pathos');
         const repoName = config.get<string>('repoName') || persistedState?.repoName || 'code-tracking';
         const remoteUrl = `https://github.com/${username}/${repoName}.git`;
 
@@ -478,29 +478,29 @@ async function restoreAuthenticationState(
         updateStatusBar(services, 'auth', true);
         updateStatusBar(services, 'tracking', true);
 
-        await context.globalState.update('devtrackAuthState', {
+        await context.globalState.update('pathosAuthState', {
           username,
           repoName,
           lastWorkspace: currentWorkspace,
         });
 
-        services.outputChannel.appendLine('DevTrack: Successfully restored authentication state');
+        services.outputChannel.appendLine('Pathos: Successfully restored authentication state');
         return true;
       }
     }
   } catch (error) {
-    services.outputChannel.appendLine(`DevTrack: Error restoring auth state - ${error}`);
+    services.outputChannel.appendLine(`Pathos: Error restoring auth state - ${error}`);
   }
   return false;
 }
 
-async function initializeServices(context: vscode.ExtensionContext): Promise<DevTrackServices | null> {
-  const outputChannel = vscode.window.createOutputChannel('DevTrack');
+async function initializeServices(context: vscode.ExtensionContext): Promise<PathosServices | null> {
+  const outputChannel = vscode.window.createOutputChannel('Pathos');
   context.subscriptions.push(outputChannel);
-  outputChannel.appendLine('DevTrack: Extension activated.');
+  outputChannel.appendLine('Pathos: Extension activated.');
   const workspaceInitService = new WorkspaceInitializationService(outputChannel);
   const githubService = new GitHubService(outputChannel);
-  const services: DevTrackServices = {
+  const services: PathosServices = {
     outputChannel,
     githubService,
     gitService: new GitService(outputChannel, githubService),
@@ -523,19 +523,19 @@ async function initializeServices(context: vscode.ExtensionContext): Promise<Dev
 
   // Only show auth prompt if restoration failed and user hasn't chosen "Don't Ask Again"
   if (!authRestored) {
-    const shouldPrompt = context.globalState.get('devtrackShouldPromptAuth', true);
+    const shouldPrompt = context.globalState.get('pathosShouldPromptAuth', true);
     if (shouldPrompt) {
       const response = await vscode.window.showInformationMessage(
-        'DevTrack needs to connect to GitHub. Would you like to connect now?',
+        'Pathos needs to connect to GitHub. Would you like to connect now?',
         'Yes',
         'No',
         "Don't Ask Again"
       );
 
       if (response === 'Yes') {
-        vscode.commands.executeCommand('devtrack.login');
+        vscode.commands.executeCommand('pathos.login');
       } else if (response === "Don't Ask Again") {
-        await context.globalState.update('devtrackShouldPromptAuth', false);
+        await context.globalState.update('pathosShouldPromptAuth', false);
       }
     }
   }
@@ -555,27 +555,27 @@ function createStatusBarItem(type: 'tracking' | 'auth'): vscode.StatusBarItem {
   );
 
   if (type === 'tracking') {
-    item.text = '$(circle-slash) DevTrack: Stopped';
-    item.tooltip = 'DevTrack: Tracking is stopped';
+    item.text = '$(circle-slash) Pathos: Stopped';
+    item.tooltip = 'Pathos: Tracking is stopped';
   } else {
-    item.text = '$(mark-github) DevTrack: Not Connected';
-    item.tooltip = 'DevTrack Status';
+    item.text = '$(mark-github) Pathos: Not Connected';
+    item.tooltip = 'Pathos Status';
   }
 
   item.show();
   return item;
 }
 
-async function loadConfiguration(services: DevTrackServices): Promise<boolean> {
-  const config = vscode.workspace.getConfiguration('devtrack');
+async function loadConfiguration(services: PathosServices): Promise<boolean> {
+  const config = vscode.workspace.getConfiguration('pathos');
   const repoName = config.get<string>('repoName') || 'code-tracking';
 
   if (!repoName || repoName.trim() === '') {
     vscode.window.showErrorMessage(
-      'DevTrack: Repository name is not set correctly in the configuration.'
+      'Pathos: Repository name is not set correctly in the configuration.'
     );
     services.outputChannel.appendLine(
-      'DevTrack: Repository name is missing or invalid.'
+      'Pathos: Repository name is missing or invalid.'
     );
     return false;
   }
@@ -585,11 +585,11 @@ async function loadConfiguration(services: DevTrackServices): Promise<boolean> {
 
 async function registerCommands(
   context: vscode.ExtensionContext,
-  services: DevTrackServices
+  services: PathosServices
 ) {
   // Start Tracking Command
   const startTracking = vscode.commands.registerCommand(
-    'devtrack.startTracking',
+    'pathos.startTracking',
     async () => {
       try {
         // Check for workspace
@@ -616,19 +616,19 @@ async function registerCommands(
         if (services.scheduler) {
           services.scheduler.start();
           updateStatusBar(services, 'tracking', true);
-          vscode.window.showInformationMessage('DevTrack: Tracking started.');
+          vscode.window.showInformationMessage('Pathos: Tracking started.');
           services.outputChannel.appendLine(
-            'DevTrack: Tracking started manually.'
+            'Pathos: Tracking started manually.'
           );
         } else {
           const response = await vscode.window.showInformationMessage(
-            'DevTrack needs to be set up before starting. Would you like to set it up now?',
-            'Set Up DevTrack',
+            'Pathos needs to be set up before starting. Would you like to set it up now?',
+            'Set Up Pathos',
             'Cancel'
           );
 
-          if (response === 'Set Up DevTrack') {
-            await initializeDevTrack(services);
+          if (response === 'Set Up Pathos') {
+            await initializePathos(services);
           }
         }
       } catch (error: any) {
@@ -639,21 +639,21 @@ async function registerCommands(
 
   // Stop Tracking Command
   const stopTracking = vscode.commands.registerCommand(
-    'devtrack.stopTracking',
+    'pathos.stopTracking',
     () => {
       if (services.scheduler) {
         services.scheduler.stop();
         updateStatusBar(services, 'tracking', false);
-        vscode.window.showInformationMessage('DevTrack: Tracking stopped.');
+        vscode.window.showInformationMessage('Pathos: Tracking stopped.');
         services.outputChannel.appendLine(
-          'DevTrack: Tracking stopped manually.'
+          'Pathos: Tracking stopped manually.'
         );
       } else {
         vscode.window.showErrorMessage(
-          'DevTrack: Please connect to GitHub first.'
+          'Pathos: Please connect to GitHub first.'
         );
         services.outputChannel.appendLine(
-          'DevTrack: Scheduler is not initialized.'
+          'Pathos: Scheduler is not initialized.'
         );
       }
     }
@@ -661,7 +661,7 @@ async function registerCommands(
 
   // Login Command
   const loginCommand = vscode.commands.registerCommand(
-    'devtrack.login',
+    'pathos.login',
     async () => {
       try {
         services.githubService.setToken('');
@@ -674,10 +674,10 @@ async function registerCommands(
         if (session) {
           // Store the session ID
           await context.globalState.update('githubSessionId', session.id);
-          await initializeDevTrack(services);
+          await initializePathos(services);
         } else {
-          services.outputChannel.appendLine('DevTrack: GitHub connection canceled.');
-          vscode.window.showInformationMessage('DevTrack: GitHub connection was canceled.');
+          services.outputChannel.appendLine('Pathos: GitHub connection canceled.');
+          vscode.window.showInformationMessage('Pathos: GitHub connection was canceled.');
         }
       } catch (error: any) {
         handleError(services, 'GitHub connection failed', error);
@@ -686,22 +686,22 @@ async function registerCommands(
   );
 
   // Logout Command
-  const logoutCommand = vscode.commands.registerCommand('devtrack.logout', () =>
+  const logoutCommand = vscode.commands.registerCommand('pathos.logout', () =>
     handleLogout(services)
   );
 
   const updateRepoVisibilityCmd = vscode.commands.registerCommand(
-    'devtrack.updateRepoVisibility',
+    'pathos.updateRepoVisibility',
     () => services.githubService.updateRepoVisibility()
   );
 
   const updateCommitFrequency = vscode.commands.registerCommand(
-    'devtrack.updateCommitFrequency',
+    'pathos.updateCommitFrequency',
     () => services.settingsService.updateCommitFrequency()
   );
 
   const toggleConfirmBeforeCommit = vscode.commands.registerCommand(
-    'devtrack.toggleConfirmBeforeCommit',
+    'pathos.toggleConfirmBeforeCommit',
     () => services.settingsService.toggleConfirmBeforeCommit()
   );
   const statusBarMenu = new StatusBarMenuService(services);
@@ -709,7 +709,7 @@ async function registerCommands(
 
    // Add menu command
    const showMenu = vscode.commands.registerCommand(
-    'devtrack.showMenu',
+    'pathos.showMenu',
     () => statusBarMenu.showMenu()
   );
 
@@ -731,7 +731,7 @@ async function registerCommands(
 }
 
 // // Update the interface to include extensionContext
-// interface DevTrackServices {
+// interface PathosServices {
 //   outputChannel: vscode.OutputChannel;
 //   githubService: GitHubService;
 //   gitService: GitService;
@@ -745,22 +745,22 @@ async function registerCommands(
 // }
 
 
-async function initializeDevTrack(services: DevTrackServices) {
+async function initializePathos(services: PathosServices) {
   try {
-    services.outputChannel.appendLine('DevTrack: Starting initialization...');
+    services.outputChannel.appendLine('Pathos: Starting initialization...');
 
     // Verify Git installation with improved error handling
     if (!(await GitInstallationHandler.checkGitInstallation(services.outputChannel))) {
       const response = await vscode.window.showErrorMessage(
-        'DevTrack requires Git to be installed and properly configured. Would you like to see the installation guide?',
+        'Pathos requires Git to be installed and properly configured. Would you like to see the installation guide?',
         'Show Guide',
         'Cancel'
       );
 
       if (response === 'Show Guide') {
-        await vscode.commands.executeCommand('devtrack.showGitGuide');
+        await vscode.commands.executeCommand('pathos.showGitGuide');
       }
-      throw new Error('Git must be installed before DevTrack can be initialized.');
+      throw new Error('Git must be installed before Pathos can be initialized.');
     }
 
     // Get GitHub authentication
@@ -770,7 +770,7 @@ async function initializeDevTrack(services: DevTrackServices) {
     });
 
     if (!session) {
-      throw new Error('GitHub authentication is required to use DevTrack.');
+      throw new Error('GitHub authentication is required to use Pathos.');
     }
 
     // Initialize GitHub service
@@ -783,7 +783,7 @@ async function initializeDevTrack(services: DevTrackServices) {
       }
 
       // Get repository configuration
-      const config = vscode.workspace.getConfiguration('devtrack');
+      const config = vscode.workspace.getConfiguration('pathos');
       const repoName = config.get<string>('repoName') || 'code-tracking';
       const remoteUrl = `https://github.com/${username}/${repoName}.git`;
 
@@ -810,7 +810,7 @@ async function initializeDevTrack(services: DevTrackServices) {
       await initializeTracker(services);
 
       // Persist authentication state using the context from services
-      await services.extensionContext.globalState.update('devtrackAuthState', {
+      await services.extensionContext.globalState.update('pathosAuthState', {
         username,
         repoName,
         lastWorkspace: vscode.workspace.workspaceFolders?.[0]?.uri.fsPath,
@@ -819,8 +819,8 @@ async function initializeDevTrack(services: DevTrackServices) {
       updateStatusBar(services, 'auth', true);
       updateStatusBar(services, 'tracking', true);
 
-      services.outputChannel.appendLine('DevTrack: Initialization completed successfully.');
-      vscode.window.showInformationMessage('DevTrack has been set up successfully and tracking has started.');
+      services.outputChannel.appendLine('Pathos: Initialization completed successfully.');
+      vscode.window.showInformationMessage('Pathos has been set up successfully and tracking has started.');
     } catch (error: any) {
       if (error.message.includes('git')) {
         throw new Error('There was an issue with Git configuration. Please ensure Git is properly installed and try again.');
@@ -834,7 +834,7 @@ async function initializeDevTrack(services: DevTrackServices) {
 }
 
 async function setupRepository(
-  services: DevTrackServices,
+  services: PathosServices,
   repoName: string,
   remoteUrl: string,
   isPrivate: boolean
@@ -849,7 +849,7 @@ async function setupRepository(
       );
     }
     services.outputChannel.appendLine(
-      `DevTrack: Created new ${isPrivate ? 'private' : 'public'} repository at ${remoteUrl}`
+      `Pathos: Created new ${isPrivate ? 'private' : 'public'} repository at ${remoteUrl}`
     );
   }
 
@@ -857,8 +857,8 @@ async function setupRepository(
 }
 
 
-async function initializeTracker(services: DevTrackServices) {
-  const config = vscode.workspace.getConfiguration('devtrack');
+async function initializeTracker(services: PathosServices) {
+  const config = vscode.workspace.getConfiguration('pathos');
   const commitFrequency = config.get<number>('commitFrequency') || 30;
 
   services.scheduler = new Scheduler(
@@ -872,16 +872,16 @@ async function initializeTracker(services: DevTrackServices) {
 }
 
 
-async function handleLogout(services: DevTrackServices) {
+async function handleLogout(services: PathosServices) {
   const confirm = await vscode.window.showWarningMessage(
-    'Are you sure you want to logout from DevTrack?',
+    'Are you sure you want to logout from Pathos?',
     { modal: true },
     'Yes',
     'No'
   );
 
   if (confirm !== 'Yes') {
-    services.outputChannel.appendLine('DevTrack: Logout cancelled by user.');
+    services.outputChannel.appendLine('Pathos: Logout cancelled by user.');
     return;
   }
 
@@ -891,17 +891,17 @@ async function handleLogout(services: DevTrackServices) {
   cleanup(services);
 
   const loginChoice = await vscode.window.showInformationMessage(
-    'DevTrack: Successfully logged out. Would you like to log in with a different account?',
+    'Pathos: Successfully logged out. Would you like to log in with a different account?',
     'Yes',
     'No'
   );
 
   if (loginChoice === 'Yes') {
-    vscode.commands.executeCommand('devtrack.login');
+    vscode.commands.executeCommand('pathos.login');
   }
 }
 
-function cleanup(services: DevTrackServices) {
+function cleanup(services: PathosServices) {
   services.githubService.setToken('');
   updateStatusBar(services, 'auth', false);
   updateStatusBar(services, 'tracking', false);
@@ -911,11 +911,11 @@ function cleanup(services: DevTrackServices) {
     services.scheduler = null;
   }
 
-  services.outputChannel.appendLine('DevTrack: Cleaned up services.');
+  services.outputChannel.appendLine('Pathos: Cleaned up services.');
 }
 
 function updateStatusBar(
-  services: DevTrackServices,
+  services: PathosServices,
   type: 'tracking' | 'auth',
   active: boolean
 ) {
@@ -923,32 +923,32 @@ function updateStatusBar(
 
   if (type === 'tracking') {
     trackingStatusBar.text = active
-      ? '$(clock) DevTrack: Tracking'
-      : '$(circle-slash) DevTrack: Stopped';
+      ? '$(clock) Pathos: Tracking'
+      : '$(circle-slash) Pathos: Stopped';
     trackingStatusBar.tooltip = active
-      ? 'DevTrack: Tracking your coding activity is active'
-      : 'DevTrack: Tracking is stopped';
+      ? 'Pathos: Tracking your coding activity is active'
+      : 'Pathos: Tracking is stopped';
   } else {
     authStatusBar.text = active
-      ? '$(check) DevTrack: Connected'
-      : '$(mark-github) DevTrack: Not Connected';
+      ? '$(check) Pathos: Connected'
+      : '$(mark-github) Pathos: Not Connected';
     authStatusBar.tooltip = active
-      ? 'DevTrack is connected to GitHub'
-      : 'DevTrack Status';
+      ? 'Pathos is connected to GitHub'
+      : 'Pathos Status';
   }
 }
 
 function handleError(
-  services: DevTrackServices,
+  services: PathosServices,
   context: string,
   error: Error
 ) {
   const message = error.message || 'An unknown error occurred';
-  services.outputChannel.appendLine(`DevTrack: ${context} - ${message}`);
-  vscode.window.showErrorMessage(`DevTrack: ${message}`);
+  services.outputChannel.appendLine(`Pathos: ${context} - ${message}`);
+  vscode.window.showErrorMessage(`Pathos: ${message}`);
 }
 
-async function ensureGitHubAuth(services: DevTrackServices): Promise<boolean> {
+async function ensureGitHubAuth(services: PathosServices): Promise<boolean> {
   try {
     const session = await vscode.authentication.getSession('github', [
       'repo',
@@ -958,49 +958,49 @@ async function ensureGitHubAuth(services: DevTrackServices): Promise<boolean> {
     return !!session;
   } catch {
     const response = await vscode.window.showErrorMessage(
-      'DevTrack requires GitHub authentication. Would you like to sign in now?',
+      'Pathos requires GitHub authentication. Would you like to sign in now?',
       'Sign in to GitHub',
       'Cancel'
     );
 
     if (response === 'Sign in to GitHub') {
-      await vscode.commands.executeCommand('devtrack.login');
+      await vscode.commands.executeCommand('pathos.login');
     }
     return false;
   }
 }
 
-function setupConfigurationHandling(services: DevTrackServices) {
+function setupConfigurationHandling(services: PathosServices) {
   vscode.workspace.onDidChangeConfiguration((event) => {
-    if (event.affectsConfiguration('devtrack')) {
+    if (event.affectsConfiguration('pathos')) {
       handleConfigurationChange(services);
     }
   });
 }
 
-async function handleConfigurationChange(services: DevTrackServices) {
-  const config = vscode.workspace.getConfiguration('devtrack');
+async function handleConfigurationChange(services: PathosServices) {
+  const config = vscode.workspace.getConfiguration('pathos');
 
   if (services.scheduler) {
     const newFrequency = config.get<number>('commitFrequency') || 30;
     services.scheduler.updateFrequency(newFrequency);
     services.outputChannel.appendLine(
-      `DevTrack: Commit frequency updated to ${newFrequency} minutes.`
+      `Pathos: Commit frequency updated to ${newFrequency} minutes.`
     );
   }
 
   const newExcludePatterns = config.get<string[]>('exclude') || [];
   services.tracker.updateExcludePatterns(newExcludePatterns);
-  services.outputChannel.appendLine('DevTrack: Configuration updated.');
+  services.outputChannel.appendLine('Pathos: Configuration updated.');
 }
 
 function showWelcomeMessage(
   context: vscode.ExtensionContext,
-  services: DevTrackServices
+  services: PathosServices
 ) {
-  if (!context.globalState.get('devtrackWelcomeShown')) {
+  if (!context.globalState.get('pathosWelcomeShown')) {
     showWelcomeInfo(services.outputChannel);
-    context.globalState.update('devtrackWelcomeShown', true);
+    context.globalState.update('pathosWelcomeShown', true);
   }
 }
 

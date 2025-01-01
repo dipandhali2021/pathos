@@ -1,9 +1,10 @@
 # Change Log
 
-All notable changes to the "devtrack" extension will be documented in this file.
+All notable changes to the "Pathos" extension will be documented in this file.
 
-Check [Keep a Changelog](http://keepachangelog.com/) for recommendations on how to structure this file.
+For guidelines on how to structure this file, check [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [Unreleased] - YYYY-MM-DD
 
-- Initial release
+### Added
+- Initial release of the "Pathos" extension, version 1.0.0.

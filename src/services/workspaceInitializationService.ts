@@ -14,7 +14,7 @@ export class WorkspaceInitializationService {
     try {
       const workspaceRoot = this.getWorkspaceRoot();
       await this.ensureGitignore(workspaceRoot);
-      await this.ensureDevTrackStructure(workspaceRoot);
+      await this.ensurePathosStructure(workspaceRoot);
       await this.initializeProjectStructure();
     } catch (error: any) {
       this.outputChannel.appendLine(`WorkspaceInitialization: Error - ${error.message}`);
@@ -32,19 +32,19 @@ export class WorkspaceInitializationService {
 
   private async ensureGitignore(workspaceRoot: string): Promise<void> {
     const gitignorePath = path.join(workspaceRoot, '.gitignore');
-    const devtrackEntry = '.devtrack/';
+    const pathosEntry = '.pathos/';
 
     try {
       let content = '';
       if (fs.existsSync(gitignorePath)) {
         content = fs.readFileSync(gitignorePath, 'utf8');
-        if (!content.includes(devtrackEntry)) {
-          content += `\n${devtrackEntry}\n`;
+        if (!content.includes(pathosEntry)) {
+          content += `\n${pathosEntry}\n`;
           fs.writeFileSync(gitignorePath, content);
           this.outputChannel.appendLine('WorkspaceInitialization: Updated .gitignore');
         }
       } else {
-        content = `${devtrackEntry}\n`;
+        content = `${pathosEntry}\n`;
         fs.writeFileSync(gitignorePath, content);
         this.outputChannel.appendLine('WorkspaceInitialization: Created .gitignore');
       }
@@ -53,27 +53,27 @@ export class WorkspaceInitializationService {
     }
   }
 
-  private async ensureDevTrackStructure(workspaceRoot: string): Promise<void> {
-    const devtrackPath = path.join(workspaceRoot, '.devtrack');
+  private async ensurePathosStructure(workspaceRoot: string): Promise<void> {
+    const pathosPath = path.join(workspaceRoot, '.pathos');
     const baseStructure = ['projects'];
 
     try {
-      // Create base .devtrack folder if it doesn't exist
-      if (!fs.existsSync(devtrackPath)) {
-        fs.mkdirSync(devtrackPath, { recursive: true });
+      // Create base .pathos folder if it doesn't exist
+      if (!fs.existsSync(pathosPath)) {
+        fs.mkdirSync(pathosPath, { recursive: true });
       }
 
       // Create only the projects folder
       baseStructure.forEach(folder => {
-        const folderPath = path.join(devtrackPath, folder);
+        const folderPath = path.join(pathosPath, folder);
         if (!fs.existsSync(folderPath)) {
           fs.mkdirSync(folderPath, { recursive: true });
         }
       });
 
-      this.outputChannel.appendLine('WorkspaceInitialization: Created .devtrack base structure');
+      this.outputChannel.appendLine('WorkspaceInitialization: Created .pathos base structure');
     } catch (error: any) {
-      throw new Error(`Failed to create .devtrack structure: ${error.message}`);
+      throw new Error(`Failed to create .pathos structure: ${error.message}`);
     }
   }
 

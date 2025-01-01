@@ -62,10 +62,10 @@ export class Scheduler {
       const commitMessage =
         await this.summaryGenerator.generateSummary(changedFiles);
 
-      const config = vscode.workspace.getConfiguration('devtrack');
+      const config = vscode.workspace.getConfiguration('pathos');
       if (config.get<boolean>('confirmBeforeCommit', true)) {
         const userResponse = await vscode.window.showInformationMessage(
-          `DevTrack: A commit will be made with the following message:\n"${commitMessage[0]}"`,
+          `Pathos: A commit will be made with the following message:\n"${commitMessage[0]}"`,
           { modal: true },
           'Proceed',
           'Cancel'
@@ -89,7 +89,7 @@ export class Scheduler {
         `Scheduler: Failed to commit changes. ${error.message}`
       );
       vscode.window.showErrorMessage(
-        `DevTrack: Commit failed. ${error.message}`
+        `Pathos: Commit failed. ${error.message}`
       );
     } finally {
       this.isCommitting = false;

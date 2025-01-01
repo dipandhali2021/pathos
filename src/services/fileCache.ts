@@ -36,10 +36,10 @@ export class FileCache {
         });
         
         this.initialized = new Set(rawData.initialized);
-        this.outputChannel.appendLine(`DevTrack: Loaded and decrypted persisted file cache for project: ${this.projectManager.getProjectIdentifier()}`);
+        this.outputChannel.appendLine(`Pathos: Loaded and decrypted persisted file cache for project: ${this.projectManager.getProjectIdentifier()}`);
       }
     } catch (error) {
-      this.outputChannel.appendLine(`DevTrack: Error loading persisted cache: ${error}`);
+      this.outputChannel.appendLine(`Pathos: Error loading persisted cache: ${error}`);
     }
   }
 
@@ -62,7 +62,7 @@ export class FileCache {
       };
       fs.writeFileSync(this.persistPath, JSON.stringify(data, null, 2));
     } catch (error) {
-      this.outputChannel.appendLine(`DevTrack: Error persisting cache: ${error}`);
+      this.outputChannel.appendLine(`Pathos: Error persisting cache: ${error}`);
     }
   }
 
