@@ -6,7 +6,7 @@
   "publisher": "DipanDhali",
   "repository": {
     "type": "GitHub",
-    "url": "https://github.com/dipandhali2021/code-track"
+    "url": "https://github.com/dipandhali2021/pathos"
   },
   "license": "MIT",
   "type": "commonjs",
@@ -81,7 +81,7 @@
         },
         "pathos.commitFrequency": {
           "type": "number",
-          "default": 1,
+          "default": 30,
           "description": "How often (in minutes) to commit your coding history."
         },
         "pathos.confirmBeforeCommit": {
