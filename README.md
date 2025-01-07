@@ -4,6 +4,8 @@
 
 Pathos is a powerful VS Code extension that automatically tracks your coding activities and provides meaningful insights into your development journey, without requiring manual commits. The name "Pathos" evokes a sense of purpose and tells the story behind development.
 
+![Pathos Demo](Animation.gif)
+
 ## 🌟 Features
 
 ### Core Functionality
