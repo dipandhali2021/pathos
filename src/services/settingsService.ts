@@ -7,7 +7,7 @@ export class SettingsService {
   async updateCommitFrequency(): Promise<void> {
     try {
       const config = vscode.workspace.getConfiguration('pathos');
-      const currentFrequency = config.get<number>('commitFrequency') || 1;
+      const currentFrequency = config.get<number>('commitFrequency') || 30;
 
       const result = await vscode.window.showQuickPick(
         ['1', '5', '10', '15', '30', '60', 'Custom'],
