@@ -19,3 +19,8 @@ For guidelines on how to structure this file, check [Keep a Changelog](http://ke
 
 ### Added
 - Commit freqquency changed.
+
+## [1.0.3] - 2025-01-08
+
+### Added
+- Updated Readme.
